@@ -12,6 +12,7 @@ const needRoutes = require('./routes/needsRoutes');
 const matchRoutes = require('./routes/matchRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const logisticsRoutes = require('./routes/logisticsRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +49,7 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/needs', needRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/stats', statsRoutes);
 
 // 5. Chat History (Modularizing later)
 app.get('/api/messages/:room', async (req, res) => {

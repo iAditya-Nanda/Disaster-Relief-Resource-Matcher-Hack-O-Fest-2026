@@ -5,11 +5,12 @@ import type { Session, User } from '@supabase/supabase-js';
 interface AuthState {
   session: Session | null;
   user: User | null;
-  role: 'NGO' | 'Needy' | 'Doctor' | null;
+  role: 'NGO' | 'Needy' | 'Doctor' | 'Admin' | null;
   loading: boolean;
   setAuth: (session: Session | null, user: User | null) => void;
   fetchRole: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
+  setMockAuth: (userId: string, role: 'NGO' | 'Needy' | 'Doctor' | 'Admin') => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,21 +21,31 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   setAuth: (session, user) => set({ session, user, loading: false }),
   
-  fetchRole: async (userId) => {
-    // Attempt to fetch role from profiles table (assuming it's set up to maintain roles)
-    // If profiles isn't available right now, we can fallback to user metadata for the Hackathon scope.
-    const { data: userObj, error } = await supabase.auth.getUser();
+  fetchRole: async (_userId) => {
+    // Attempt to fetch role from user metadata
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (userObj?.user?.user_metadata?.role) {
-      set({ role: userObj.user.user_metadata.role });
+    if (user?.user_metadata?.role) {
+      set({ role: user.user_metadata.role });
     } else {
-      // Fallback
-      set({ role: 'NGO' }); // default for testing if not set
+      // Default fallback
+      set({ role: 'NGO' });
     }
   },
 
   signOut: async () => {
     await supabase.auth.signOut();
     set({ session: null, user: null, role: null });
+  },
+
+  setMockAuth: (userId, role) => {
+    // Construct a mock user object with the required ID
+    const mockUser = {
+      id: userId,
+      email: `${role.toLowerCase()}@sandbox.internal`,
+      user_metadata: { role, full_name: `Sandbox ${role}` }
+    } as any;
+    
+    set({ user: mockUser, role, loading: false });
   }
 }));

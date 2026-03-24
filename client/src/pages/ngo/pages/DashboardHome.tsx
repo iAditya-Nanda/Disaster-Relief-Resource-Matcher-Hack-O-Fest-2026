@@ -1,173 +1,169 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { 
-  TrendingUp, Heart, 
-  ChevronRight, ArrowUpRight, CheckCircle2,
-  AlertCircle, ShieldCheck, Zap, Navigation, Package
+  Zap,
+  TrendingUp,
+  Shield,
+  Layers,
+  Search,
+  MapPin
 } from 'lucide-react';
-import { StatsGrid } from '../components/StatsGrid';
-import { DeployModal } from '../components/DeployModal';
-import heroBg from '../../../assets/dashboard_hero_bg.png';
-import truckIcon from '../../../assets/relief_truck_3d.png';
-import medIcon from '../../../assets/medical_kit_3d.png';
-import volunteerIcon from '../../../assets/volunteer_community_3d.png';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import axios from 'axios';
 
-export const DashboardHome: React.FC = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export default function DashboardHome() {
+  const [stats, setStats] = useState({
+    resources: 0,
+    needs: 0,
+    matches: 0,
+    volunteers: 0,
+    grid_integrity: 'SECURE'
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await axios.get(`${API_URL}/api/stats/v1/dashboard`);
+        setStats(res.data);
+      } catch (err) {
+        console.error('Error fetching backend stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
+  const statCards = [
+    { label: 'Aid Stock.', value: stats.resources, icon: '/icons/NGO/inventory.png', trend: 'Live' },
+    { label: 'Emergency.', value: stats.needs, icon: '/icons/NGO/needs.png', trend: 'Urgent' },
+    { label: 'Matches.', value: stats.matches, icon: '/icons/NGO/dashboard.png', trend: 'Active' },
+    { label: 'Teams.', value: stats.volunteers, icon: '/icons/NGO/volunteers.png', trend: 'Nodes' },
+  ];
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-1000 slide-in-from-bottom-4">
-      {/* Hero Section */}
-      <div className="relative h-80 rounded-[40px] overflow-hidden group border border-teal-100/50 shadow-2xl shadow-teal-500/10">
-         <img src={heroBg} alt="Background" className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-         <div className="absolute inset-0 bg-gradient-to-r from-teal-950/80 via-teal-900/40 to-transparent flex flex-col justify-center px-16">
-            <div className="flex items-center gap-3 mb-4 animate-in slide-in-from-left duration-700">
-               <div className="px-3 py-1 bg-teal-500/20 backdrop-blur-md rounded-full border border-teal-400/30 flex items-center gap-2">
-                  <Zap size={14} className="text-teal-400 fill-teal-400" />
-                  <span className="text-[10px] font-black text-teal-100 uppercase tracking-[0.2em]">Operational Excellence</span>
-               </div>
-            </div>
-            <h1 className="text-5xl font-black text-white tracking-tighter italic leading-none mb-6">
-               COMMAND <br /> <span className="text-teal-400">CENTER ALPHA</span>
-            </h1>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="w-fit flex items-center gap-4 bg-white text-gray-950 hover:bg-teal-50 px-10 py-5 rounded-[24px] font-black text-xs tracking-[0.2em] transition-all hover:scale-105 shadow-xl shadow-black/20 uppercase italic"
-            >
-              Initialize Deployment <ArrowUpRight size={18} />
-            </button>
-         </div>
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      className="space-y-12 pb-20 px-2"
+    >
+      {/* Scaled Down Title - Consistent with Auth Page Sizing */}
+      <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+        <div className="flex flex-col gap-4 max-w-xl">
+          <h2 className="text-6xl font-black text-slate-900 tracking-[-0.04em] leading-tight">
+            Command Center.
+          </h2>
+          <p className="text-lg font-medium text-slate-400 leading-relaxed tracking-tight border-l-4 border-[#2F5FE3] pl-6">
+            Real-time logistical overview of the Himachal relief grid. Monitors live aid stock and regional help requests.
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-4 bg-[#2F5FE3]/5 border border-[#2F5FE3]/20 p-5 rounded-[30px] shadow-sm group">
+           <Layers className="text-[#2F5FE3] animate-pulse" size={20} />
+           <p className="text-xs font-black text-[#2F5FE3] tracking-widest uppercase">Grid integrity: {stats.grid_integrity}</p>
+        </div>
       </div>
 
-      <StatsGrid />
+      {/* Scaled Cards - Unified with Auth Branding */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statCards.map((stat, i) => (
+          <motion.div 
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className="bg-white p-8 rounded-[40px] shadow-[0_12px_45px_-15px_rgba(0,0,0,0.03)] hover:shadow-[0_45px_100px_-20px_rgba(0,0,0,0.08)] transition-all duration-700 flex items-center justify-between group cursor-pointer border border-slate-50 relative overflow-hidden"
+          >
+            <div className="flex-1 space-y-2 relative z-10">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-[#2F5FE3] transition-colors">{stat.trend}</span>
+              <p className="text-5xl font-black text-slate-900 tracking-tight leading-none">{loading ? '...' : stat.value}</p>
+              <h4 className="text-base font-black text-slate-700 tracking-tight leading-none uppercase">{stat.label}</h4>
+            </div>
+            
+            <div className="w-24 h-24 absolute -right-4 top-1/2 -translate-y-1/2 opacity-[0.03] grayscale group-hover:grayscale-0 group-hover:opacity-10 transition-all duration-1000 pointer-events-none">
+              <img src={stat.icon} alt={stat.label} className="w-full h-full object-contain" />
+            </div>
+          </motion.div>
+        ))}
+      </div>
 
-      <DeployModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onRefresh={() => {}} 
-      />
+      {/* Grid Map & Protocol - Scaled for Better Viewport Fit */}
+      <div className="grid lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-8">
+           <div className="flex flex-col gap-3 px-4 relative">
+              <div className="absolute -left-2 top-0 w-1.5 h-12 bg-[#2F5FE3] rounded-full"></div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Relief Sector Nodes.</h3>
+              <p className="text-sm font-semibold text-slate-400">Geolocation of active hubs across Himachal logistics units.</p>
+           </div>
+           
+           <div className="h-[500px] w-full bg-white rounded-[50px] shadow-2xl overflow-hidden border-4 border-white relative group">
+              <MapContainer 
+                center={[31.1048, 77.1734]} 
+                zoom={8} 
+                style={{ height: '100%', width: '100%' }}
+                zoomControl={false}
+              >
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                />
+                <Marker position={[31.1048, 77.1734]}>
+                  <Popup>Shimla Center Hub</Popup>
+                </Marker>
+                <Marker position={[32.2190, 76.3234]}>
+                  <Popup>Kangra Unit</Popup>
+                </Marker>
+              </MapContainer>
+              <div className="absolute top-6 right-6 z-[1000] flex gap-2">
+                 <button className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-lg text-slate-400 hover:text-slate-900 transition-all"><Search size={20} /></button>
+                 <button className="bg-white p-4 rounded-[20px] border border-slate-100 shadow-lg text-slate-400 hover:text-slate-900 transition-all"><MapPin size={20} /></button>
+              </div>
+           </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2 space-y-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             {/* Supply Chain Card */}
-             <div className="clay-card p-10 group cursor-pointer hover:border-teal-200 transition-all overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 group-hover:opacity-20 transition-opacity p-4">
-                   <img src={truckIcon} alt="Truck" className="w-full h-full object-contain" />
+        <div className="lg:col-span-4 space-y-8">
+          <div className="space-y-4">
+            <h3 className="text-xl font-black text-slate-900 tracking-tight px-6 underline decoration-[#2F5FE3] decoration-4 underline-offset-4">Dispatch logic.</h3>
+            <div className="bg-gradient-to-br from-[#2F5FE3] to-[#1A3BA3] p-10 rounded-[50px] text-white shadow-2xl shadow-blue-900/10 relative overflow-hidden group border-4 border-white">
+              <div className="relative z-10 space-y-8">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 text-[9px] font-black tracking-widest uppercase mb-2">
+                    <Shield size={12} className="fill-white" />
+                    Secure node
+                  </div>
+                  <h4 className="text-4xl font-black text-white tracking-tight leading-none">Sync Nodes.</h4>
+                  <p className="text-sm text-white/50 font-bold tracking-tight italic leading-relaxed">Cross-reference regional stock with disaster coordinates instantly.</p>
                 </div>
-                <div className="w-16 h-16 bg-teal-50 rounded-[24px] flex items-center justify-center mb-8 border border-teal-100 shadow-inner group-hover:rotate-6 transition-transform">
-                   <Package size={28} className="text-teal-600" />
-                </div>
-                <h3 className="text-2xl font-black text-gray-950 mb-3 italic tracking-tight">Active Logistics</h3>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
-                   Monitoring 12 regional distribution clusters across Sector 7.
-                </p>
-                <div className="flex items-center gap-3 text-teal-600 text-[10px] font-black uppercase tracking-widest">
-                   Live Tracking <Navigation size={12} className="animate-pulse" />
-                </div>
+                <button className="w-full bg-white text-[#2F5FE3] hover:translate-y-[-3px] py-6 rounded-[30px] text-sm font-black tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-4 active:scale-95 group/btn uppercase">
+                  Deploy Matches <Zap size={20} className="fill-[#2F5FE3]" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-10 rounded-[50px] border border-slate-50 shadow-sm space-y-6">
+             <div className="flex justify-between items-center px-2">
+               <p className="text-xl font-black text-slate-900 tracking-tight italic">Live Grid.</p>
+               <TrendingUp size={24} className="text-[#2F5FE3]" />
              </div>
-
-             {/* Medical Card */}
-             <div className="clay-card p-10 group cursor-pointer hover:border-red-200 transition-all overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-32 h-32 opacity-10 group-hover:opacity-20 transition-opacity p-4">
-                   <img src={medIcon} alt="Medical" className="w-full h-full object-contain" />
-                </div>
-                <div className="w-16 h-16 bg-red-50 rounded-[24px] flex items-center justify-center mb-8 border border-red-100 shadow-inner group-hover:-rotate-6 transition-transform">
-                   <Heart size={28} className="text-red-500 fill-red-500/10" />
-                </div>
-                <h3 className="text-2xl font-black text-gray-950 mb-3 italic tracking-tight">Health Triage</h3>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
-                   42 medical kits ready for air-drop in high-altitude zones.
-                </p>
-                <div className="flex items-center gap-3 text-red-500 text-[10px] font-black uppercase tracking-widest">
-                   Urgent Status <AlertCircle size={12} className="animate-bounce" />
-                </div>
-             </div>
-
-             {/* Volunteers Summary */}
-             <div className="clay-card col-span-full p-10 flex flex-col md:flex-row items-center gap-10 hover:border-amber-200 transition-all relative overflow-hidden group">
-                <div className="w-40 h-40 shrink-0 p-4 bg-amber-50 rounded-[40px] border border-amber-100 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                   <img src={volunteerIcon} alt="Volunteers" className="w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all" />
-                </div>
-                <div className="flex-1">
-                   <div className="flex items-center gap-3 mb-4">
-                      <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[9px] font-black uppercase tracking-widest">Personnel Sync</span>
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+             <div className="space-y-5">
+               {[1,2,3].map(i => (
+                 <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 p-3 rounded-2xl transition-all">
+                   <div className="flex items-center gap-4">
+                      <div className="w-10 h-[2px] bg-slate-100 group-hover:bg-[#2F5FE3] transition-all duration-500"></div>
+                      <span className="text-xs font-bold text-slate-400 group-hover:text-slate-900 transition-all capitalize">Hub node #{i}</span>
                    </div>
-                   <h3 className="text-3xl font-black text-gray-950 mb-4 italic tracking-tighter leading-none">Community Backbone</h3>
-                   <p className="text-sm text-gray-500 font-medium mb-8 max-w-lg leading-relaxed">
-                      Our volunteer network has grown by <span className="text-teal-600 font-bold">14% this week</span>. Coordination protocols are optimized for rapid response in Shimla & Beas Valley.
-                   </p>
-                   <div className="flex items-center gap-12">
-                      <div>
-                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Now</p>
-                         <p className="text-2xl font-black italic">1,204</p>
-                      </div>
-                      <div className="w-[1px] h-10 bg-gray-100"></div>
-                      <div>
-                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Response Time</p>
-                         <p className="text-2xl font-black italic text-amber-500">8.2m</p>
-                      </div>
-                   </div>
-                </div>
-                <ChevronRight className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-200 group-hover:text-teal-500 transition-colors" size={40} />
+                   <div className="w-1.5 h-1.5 rounded-full bg-[#2F5FE3]/20 group-hover:bg-[#2F5FE3] transition-all"></div>
+                 </div>
+               ))}
              </div>
           </div>
         </div>
-
-        {/* Right Side Stack */}
-        <div className="space-y-10">
-           {/* System Health Console */}
-           <div className="clay-card bg-gray-950 text-white p-10 border-none relative overflow-hidden group">
-              <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-[100px] group-hover:bg-teal-500/20 transition-all"></div>
-              <p className="text-[10px] font-black text-teal-500 uppercase tracking-[0.4em] mb-10">Neural Engine Status</p>
-              
-              <div className="space-y-8">
-                 {[
-                   { label: "AI Matcher", icon: ShieldCheck, val: 99.8 },
-                   { label: "GPS Mesh", icon: Navigation, val: 94.2 },
-                   { label: "Relief Cloud", icon: CheckCircle2, val: 100 }
-                 ].map((item, idx) => (
-                   <div key={idx} className="space-y-3">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                         <span className="flex items-center gap-2">
-                            <item.icon size={12} className="text-gray-500" />
-                            {item.label}
-                         </span>
-                         <span className={item.val === 100 ? 'text-teal-500' : 'text-white'}>{item.val}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                         <div className="h-full bg-teal-500 rounded-full" style={{ width: `${item.val}%` }}></div>
-                      </div>
-                   </div>
-                 ))}
-              </div>
-           </div>
-
-           {/* Metrics Highlight */}
-           <div className="clay-card p-10 bg-teal-600 text-white border-none shadow-2xl shadow-teal-500/30 group">
-              <p className="text-[10px] font-black text-teal-100 uppercase tracking-[0.3em] mb-6">Total Impact</p>
-              <div className="flex items-baseline gap-2 mb-2 group-hover:translate-x-1 transition-transform">
-                 <span className="text-4xl font-black italic">14,302</span>
-                 <ArrowUpRight size={24} className="text-teal-300" />
-              </div>
-              <p className="text-xs font-bold text-teal-100 opacity-70">Lives Supported Today</p>
-           </div>
-
-           {/* Quick Feedback Card */}
-           <div className="clay-card p-8 bg-white border border-gray-100 flex items-center justify-between group hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-teal-600 transition-colors">
-                    <TrendingUp size={24} />
-                 </div>
-                 <div>
-                    <h4 className="text-xs font-black text-gray-950 uppercase tracking-widest">Growth Analytics</h4>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Real-time reports</p>
-                 </div>
-              </div>
-              <ChevronRight size={18} className="text-gray-200 group-hover:text-gray-400 transition-colors" />
-           </div>
-        </div>
       </div>
-    </div>
+    </motion.div>
   );
-};
+}

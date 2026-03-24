@@ -18,9 +18,9 @@ const createNeed = async (req, res) => {
   try {
     const { title, description, urgency, lat, lng } = req.body;
 
-    if (!title || !lat || !lng) {
-      return res.status(400).json({ error: 'Missing required fields (title, lat, lng)' });
-    }
+    // if (!title || !lat || !lng) {
+    //   return res.status(400).json({ error: 'Missing required fields (title, lat, lng)' });
+    // }
 
     const baseUrgency = extractUrgency(title, description, urgency || 1);
     

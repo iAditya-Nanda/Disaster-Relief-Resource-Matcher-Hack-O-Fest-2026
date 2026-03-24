@@ -65,12 +65,26 @@ const findMatchesForNeed = async (req, res) => {
             .eq('id', id)
             .single();
 
-        if (needError || !need) {
-            return res.status(404).json({ error: 'Need not found or has no location' });
+        if (needError || !need || !need.location) {
+            return res.status(404).json({ error: 'Need not found or has no active geodata.' });
         }
 
-        const coords = need.location.match(/\(([^)]+)\)/)[1].split(' ');
-        const [lng, lat] = coords;
+        let lat, lng;
+        
+        // Handle different possible location formats from Supabase PostGIS
+        if (typeof need.location === 'string') {
+            const match = need.location.match(/\(([^)]+)\)/);
+            if (match) {
+                const coords = match[1].split(' ');
+                [lng, lat] = coords;
+            }
+        } else if (need.location.coordinates) {
+            [lng, lat] = need.location.coordinates;
+        }
+
+        if (!lat || !lng) {
+            return res.status(400).json({ error: 'Invalid location format in target need.' });
+        }
 
         const { data, error } = await supabase.rpc('get_nearby_resources', {
             user_lat: parseFloat(lat),
@@ -82,7 +96,7 @@ const findMatchesForNeed = async (req, res) => {
 
         let scoredMatches = data.map(match => ({
             ...match,
-            match_score: calculateMatchScore(match, need.urgency, need.category)
+            match_score: calculateMatchScore(match, need.urgency || 5, need.category)
         })).sort((a, b) => b.match_score - a.match_score);
 
         // AI Verification for Need

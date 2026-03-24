@@ -6,9 +6,9 @@ const createResource = async (req, res) => {
   try {
     const { title, category, quantity, unit, lat, lng } = req.body;
 
-    if (!title || !category || !lat || !lng) {
-      return res.status(400).json({ error: 'Missing required fields (title, category, lat, lng)' });
-    }
+    // if (!title || !category || !lat || !lng) {
+    //   return res.status(400).json({ error: 'Missing required fields (title, category, lat, lng)' });
+    // }
 
     const { data, error } = await supabase
       .from('resources')
@@ -37,9 +37,9 @@ const getNearbyResources = async (req, res) => {
   try {
     const { lat, lng, radius = 50000 } = req.query;
 
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'Coordinates (lat, lng) are required' });
-    }
+    // if (!lat || !lng) {
+    //   return res.status(400).json({ error: 'Coordinates (lat, lng) are required' });
+    // }
 
     const { data, error } = await supabase.rpc('get_nearby_resources', {
       user_lat: parseFloat(lat),
