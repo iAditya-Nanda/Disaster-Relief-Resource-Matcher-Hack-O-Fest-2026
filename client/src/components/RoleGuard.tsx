@@ -1,22 +1,36 @@
-import type { ReactNode } from 'react';
-// This will be expanded when we add auth state management (Zustand)
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+
 interface RoleGuardProps {
-  children: ReactNode;
-  allowedRoles: string[];
-  userRole?: string;
+  allowedRoles: Array<'NGO' | 'Needy' | 'Doctor'>;
+  fallbackRoute?: string;
 }
 
-export const RoleGuard = ({ children, allowedRoles, userRole }: RoleGuardProps) => {
-  if (!userRole || !allowedRoles.includes(userRole)) {
+export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, fallbackRoute = '/auth' }) => {
+  const { role, session, loading } = useAuthStore();
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-        <div className="p-8 bg-slate-800 border border-red-500 rounded-lg shadow-xl">
-          <h2 className="text-2xl font-bold text-red-400">Access Denied</h2>
-          <p className="mt-2 opacity-80">You do not have permission to view this dashboard.</p>
+      <div className="min-h-screen bg-thiings-bg flex items-center justify-center font-sans">
+        <div className="inline-flex items-center px-6 py-3 rounded-full text-amber-800 bg-amber-100 border border-amber-200 font-bold animate-pulse-ring shadow-sm">
+          Loading Dashboard Context...
         </div>
       </div>
     );
   }
 
-  return <>{children}</>;
+  if (!session) {
+    return <Navigate to={fallbackRoute} replace />;
+  }
+
+  if (role && !allowedRoles.includes(role)) {
+    // Basic redirect based on known role mapping
+    if (role === 'NGO') return <Navigate to="/ngo" replace />;
+    if (role === 'Needy') return <Navigate to="/needy" replace />;
+    if (role === 'Doctor') return <Navigate to="/doctor" replace />;
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  return <Outlet />;
 };
