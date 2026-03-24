@@ -1,15 +1,68 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 import { useAuthStore } from './store/authStore';
 import { RoleGuard } from './components/RoleGuard';
+import { AnimatePresence } from 'framer-motion';
+import PageTransition from './components/PageTransition';
 
 // Pages
 import AuthPage from './pages/Auth';
-import NgoDashboard from './pages/NgoDashboard';
+import NgoDashboard from './pages/ngo';
 import NeedyDashboard from './pages/NeedyDashboard';
-import DoctorDashboard from './pages/DoctorDashboard';
+import DoctorDashboard from './pages/doctor';
 import AdminDashboard from './pages/AdminDashboard';
+
+function AnimatedRoutes() {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname.split('/')[1]}>
+        <Route path="/auth" element={
+          <PageTransition>
+            <AuthPage />
+          </PageTransition>
+        } />
+
+        <Route element={<RoleGuard allowedRoles={['NGO']} />}>
+          <Route path="/ngo/*" element={
+            <PageTransition>
+              <NgoDashboard />
+            </PageTransition>
+          } />
+        </Route>
+
+        <Route element={<RoleGuard allowedRoles={['Needy']} />}>
+          <Route path="/needy/*" element={
+            <PageTransition>
+              <NeedyDashboard />
+            </PageTransition>
+          } />
+        </Route>
+
+        <Route element={<RoleGuard allowedRoles={['Doctor']} />}>
+          <Route path="/doctor/*" element={
+            <PageTransition>
+              <DoctorDashboard />
+            </PageTransition>
+          } />
+        </Route>
+
+        <Route element={<RoleGuard allowedRoles={['Admin']} />}>
+          <Route path="/admin/*" element={
+            <PageTransition>
+              <AdminDashboard />
+            </PageTransition>
+          } />
+        </Route>
+
+        <Route path="/" element={<Navigate to="/auth" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
 
 function App() {
   const { setAuth, fetchRole, loading: storeLoading } = useAuthStore();
@@ -48,28 +101,7 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/auth" element={<AuthPage />} />
-
-        <Route element={<RoleGuard allowedRoles={['NGO']} />}>
-          <Route path="/ngo/*" element={<NgoDashboard />} />
-        </Route>
-
-        <Route element={<RoleGuard allowedRoles={['Needy']} />}>
-          <Route path="/needy/*" element={<NeedyDashboard />} />
-        </Route>
-
-        <Route element={<RoleGuard allowedRoles={['Doctor']} />}>
-          <Route path="/doctor/*" element={<DoctorDashboard />} />
-        </Route>
-
-        <Route element={<RoleGuard allowedRoles={['Admin']} />}>
-          <Route path="/admin/*" element={<AdminDashboard />} />
-        </Route>
-
-        <Route path="/" element={<Navigate to="/auth" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AnimatedRoutes />
     </Router>
   );
 }
