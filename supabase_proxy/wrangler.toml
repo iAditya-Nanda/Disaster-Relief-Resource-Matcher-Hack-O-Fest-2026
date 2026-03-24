@@ -1,0 +1,7 @@
+name = "supabase-proxy"
+main = "worker.js"
+compatibility_date = "2024-03-24"
+
+[vars]
+# You can also move the URL here for flexibility
+SUPABASE_URL = "https://toiedeicmxbawpwtpqvt.supabase.co"

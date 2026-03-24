@@ -1,0 +1,13 @@
+{
+  "common": {
+    "need": "Need",
+    "supply": "Supply",
+    "urgent": "Urgent",
+    "help": "Help",
+    "matching": "Matching Resources",
+    "NGO": "NGO Dashboard",
+    "Needy": "Needy Portal",
+    "Doctor": "Doctor Helpline",
+    "location": "Locating..."
+  }
+}
