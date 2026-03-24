@@ -39,10 +39,10 @@ export default function DashboardHome() {
   }, []);
 
   const statCards = [
-    { label: 'Aid Stock.', value: stats.resources, icon: '/icons/NGO/inventory.png', trend: 'Live' },
-    { label: 'Emergency.', value: stats.needs, icon: '/icons/NGO/needs.png', trend: 'Urgent' },
-    { label: 'Matches.', value: stats.matches, icon: '/icons/NGO/dashboard.png', trend: 'Active' },
-    { label: 'Teams.', value: stats.volunteers, icon: '/icons/NGO/volunteers.png', trend: 'Nodes' },
+    { label: 'Total Aid Stock', value: stats.resources, icon: '/icons/NGO/inventory.png', trend: 'In Stock' },
+    { label: 'Active Requests', value: stats.needs, icon: '/icons/NGO/needs.png', trend: 'Urgent' },
+    { label: 'Successful Matches', value: stats.matches, icon: '/icons/NGO/dashboard.png', trend: 'Completed' },
+    { label: 'Field Responders', value: stats.volunteers, icon: '/icons/NGO/volunteers.png', trend: 'On Duty' },
   ];
 
   return (
@@ -52,24 +52,24 @@ export default function DashboardHome() {
       exit={{ opacity: 0, y: -15 }}
       className="space-y-12 pb-20 px-2"
     >
-      {/* Scaled Down Title - Consistent with Auth Page Sizing */}
+      {/* Scaled Down Title */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-8">
         <div className="flex flex-col gap-4 max-w-xl">
           <h2 className="text-6xl font-black text-slate-900 tracking-[-0.04em] leading-tight">
-            Command Center.
+            Relief Overview.
           </h2>
           <p className="text-lg font-medium text-slate-400 leading-relaxed tracking-tight border-l-4 border-[#2F5FE3] pl-6">
-            Real-time logistical overview of the Himachal relief grid. Monitors live aid stock and regional help requests.
+            Real-time logistical overview of disaster relief efforts. Monitor aid distribution and help requests across the region.
           </p>
         </div>
         
         <div className="flex items-center gap-4 bg-[#2F5FE3]/5 border border-[#2F5FE3]/20 p-5 rounded-[30px] shadow-sm group">
            <Layers className="text-[#2F5FE3] animate-pulse" size={20} />
-           <p className="text-xs font-black text-[#2F5FE3] tracking-widest uppercase">Grid integrity: {stats.grid_integrity}</p>
+           <p className="text-xs font-black text-[#2F5FE3] tracking-widest uppercase">System Status: {stats.grid_integrity === 'SECURE' ? 'OPERATIONAL' : stats.grid_integrity}</p>
         </div>
       </div>
 
-      {/* Scaled Cards - Unified with Auth Branding */}
+      {/* Scaled Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => (
           <motion.div 
@@ -77,7 +77,7 @@ export default function DashboardHome() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white p-8 rounded-[40px] shadow-[0_12px_45px_-15px_rgba(0,0,0,0.03)] hover:shadow-[0_45px_100px_-20px_rgba(0,0,0,0.08)] transition-all duration-700 flex items-center justify-between group cursor-pointer border border-slate-50 relative overflow-hidden"
+            className="bg-white p-8 rounded-[40px] shadow-[0_12px_45_rgba(0,0,0,0.03)] hover:shadow-[0_45px_100px_-20px_rgba(0,0,0,0.08)] transition-all duration-700 flex items-center justify-between group cursor-pointer border border-slate-50 relative overflow-hidden"
           >
             <div className="flex-1 space-y-2 relative z-10">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-[#2F5FE3] transition-colors">{stat.trend}</span>
@@ -92,13 +92,13 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Grid Map & Protocol - Scaled for Better Viewport Fit */}
+      {/* Relief Map & Operations */}
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
            <div className="flex flex-col gap-3 px-4 relative">
               <div className="absolute -left-2 top-0 w-1.5 h-12 bg-[#2F5FE3] rounded-full"></div>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Relief Sector Nodes.</h3>
-              <p className="text-sm font-semibold text-slate-400">Geolocation of active hubs across Himachal logistics units.</p>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Active Relief Hubs.</h3>
+              <p className="text-sm font-semibold text-slate-400">Geolocation of active humanitarian centers across relief sectors.</p>
            </div>
            
            <div className="h-[500px] w-full bg-white rounded-[50px] shadow-2xl overflow-hidden border-4 border-white relative group">
@@ -112,10 +112,10 @@ export default function DashboardHome() {
                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                 />
                 <Marker position={[31.1048, 77.1734]}>
-                  <Popup>Shimla Center Hub</Popup>
+                  <Popup>Main Relief Center</Popup>
                 </Marker>
                 <Marker position={[32.2190, 76.3234]}>
-                  <Popup>Kangra Unit</Popup>
+                  <Popup>Regional Distribution Point</Popup>
                 </Marker>
               </MapContainer>
               <div className="absolute top-6 right-6 z-[1000] flex gap-2">
@@ -127,19 +127,19 @@ export default function DashboardHome() {
 
         <div className="lg:col-span-4 space-y-8">
           <div className="space-y-4">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight px-6 underline decoration-[#2F5FE3] decoration-4 underline-offset-4">Dispatch logic.</h3>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight px-6 underline decoration-[#2F5FE3] decoration-4 underline-offset-4">Resource Allocation.</h3>
             <div className="bg-gradient-to-br from-[#2F5FE3] to-[#1A3BA3] p-10 rounded-[50px] text-white shadow-2xl shadow-blue-900/10 relative overflow-hidden group border-4 border-white">
               <div className="relative z-10 space-y-8">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/10 text-[9px] font-black tracking-widest uppercase mb-2">
                     <Shield size={12} className="fill-white" />
-                    Secure node
+                    Verified Hub
                   </div>
-                  <h4 className="text-4xl font-black text-white tracking-tight leading-none">Sync Nodes.</h4>
-                  <p className="text-sm text-white/50 font-bold tracking-tight italic leading-relaxed">Cross-reference regional stock with disaster coordinates instantly.</p>
+                  <h4 className="text-4xl font-black text-white tracking-tight leading-none">Smart Matching.</h4>
+                  <p className="text-sm text-white/50 font-bold tracking-tight italic leading-relaxed">Instantly connect regional aid stock with the most urgent disaster needs.</p>
                 </div>
                 <button className="w-full bg-white text-[#2F5FE3] hover:translate-y-[-3px] py-6 rounded-[30px] text-sm font-black tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-4 active:scale-95 group/btn uppercase">
-                  Deploy Matches <Zap size={20} className="fill-[#2F5FE3]" />
+                  Match Resources <Zap size={20} className="fill-[#2F5FE3]" />
                 </button>
               </div>
             </div>
@@ -147,7 +147,7 @@ export default function DashboardHome() {
 
           <div className="bg-white p-10 rounded-[50px] border border-slate-50 shadow-sm space-y-6">
              <div className="flex justify-between items-center px-2">
-               <p className="text-xl font-black text-slate-900 tracking-tight italic">Live Grid.</p>
+               <p className="text-xl font-black text-slate-900 tracking-tight italic">Operations Log.</p>
                <TrendingUp size={24} className="text-[#2F5FE3]" />
              </div>
              <div className="space-y-5">
@@ -155,7 +155,7 @@ export default function DashboardHome() {
                  <div key={i} className="flex items-center justify-between group cursor-pointer hover:bg-slate-50 p-3 rounded-2xl transition-all">
                    <div className="flex items-center gap-4">
                       <div className="w-10 h-[2px] bg-slate-100 group-hover:bg-[#2F5FE3] transition-all duration-500"></div>
-                      <span className="text-xs font-bold text-slate-400 group-hover:text-slate-900 transition-all capitalize">Hub node #{i}</span>
+                      <span className="text-xs font-bold text-slate-400 group-hover:text-slate-900 transition-all capitalize">Relief Hub #{i}</span>
                    </div>
                    <div className="w-1.5 h-1.5 rounded-full bg-[#2F5FE3]/20 group-hover:bg-[#2F5FE3] transition-all"></div>
                  </div>

@@ -83,7 +83,7 @@ export default function Inventory() {
           setQuantity(0);
         }
         setSubmitting(false);
-      }, (err) => {
+      }, () => {
         alert("Please enable location to add resources.");
         setSubmitting(false);
       });
@@ -118,10 +118,10 @@ export default function Inventory() {
       <div className="flex flex-col md:flex-row justify-between items-end gap-10">
         <div className="flex flex-col gap-4 flex-1">
           <h2 className="text-6xl font-black text-slate-900 tracking-[-0.04em] leading-tight">
-            Repository.
+            Aid Stock.
           </h2>
           <p className="text-lg font-medium text-slate-400 tracking-tight leading-relaxed max-w-xl border-l-4 border-blue-500 pl-6">
-            Logistical oversight of disaster relief stock. Unified inventory registry for the northern sector.
+            Logistical oversight of disaster relief inventory. Manage and track essential supplies across all regional hubs.
           </p>
         </div>
         
@@ -130,7 +130,7 @@ export default function Inventory() {
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
               <input 
                 type="text" 
-                placeholder="Search resources..." 
+                placeholder="Search stock..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-white border border-slate-100 focus:border-blue-200 focus:ring-[8px] focus:ring-blue-500/5 rounded-full py-4 pl-14 pr-6 text-sm font-semibold transition-all outline-none"
@@ -141,7 +141,7 @@ export default function Inventory() {
              className="flex items-center gap-3 bg-[#2F5FE3] hover:bg-blue-600 text-white px-8 py-4 rounded-full text-xs font-black tracking-widest shadow-lg shadow-blue-500/20 transition-all uppercase border-2 border-white shrink-0"
            >
              <Plus size={18} strokeWidth={3} />
-             Add unit
+             Add Resource
            </button>
         </div>
       </div>
@@ -155,8 +155,8 @@ export default function Inventory() {
           <div className="w-24 h-24 bg-slate-50 rounded-[35px] flex items-center justify-center mb-8 shadow-inner">
             <Inbox className="text-slate-200" size={40} />
           </div>
-          <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-4 italic uppercase">Empty sector.</h3>
-          <p className="text-base text-slate-400 font-bold max-w-sm tracking-tight opacity-60">No active relief assets located.</p>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-4 italic uppercase">Empty Stock.</h3>
+          <p className="text-base text-slate-400 font-bold max-w-sm tracking-tight opacity-60">No active relief assets found in this sector.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -191,7 +191,7 @@ export default function Inventory() {
                        <p className="text-[9px] font-black text-slate-300 tracking-widest uppercase">Location</p>
                        <div className="flex items-center gap-2">
                           <MapPin size={12} className="text-red-500" />
-                          <span className="text-xs font-black text-slate-900">Node {res.id.slice(0, 4)}</span>
+                          <span className="text-xs font-black text-slate-900">Hub {res.id.slice(0, 4)}</span>
                        </div>
                     </div>
                   </div>
@@ -215,7 +215,7 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Add Modal Scaled */}
+      {/* Add Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
@@ -233,7 +233,7 @@ export default function Inventory() {
               className="bg-white w-full max-w-lg rounded-[50px] shadow-2xl relative z-10 overflow-hidden"
             >
               <div className="p-10 pb-6 flex justify-between items-center bg-slate-50/50 border-b border-slate-100">
-                <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">Registry node.</h3>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">New Resource.</h3>
                 <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-slate-900 hover:bg-white rounded-full transition-all">
                   <X size={24} />
                 </button>
@@ -241,20 +241,20 @@ export default function Inventory() {
 
               <form onSubmit={handleAddResource} className="p-10 space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Asset name</label>
+                  <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Item Name</label>
                   <input 
                     type="text" 
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Relief Unit 102"
+                    placeholder="e.g. Medical Kits"
                     className="w-full bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white focus:ring-[8px] focus:ring-blue-500/5 rounded-full py-5 px-8 text-base font-bold transition-all outline-none" 
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Type</label>
+                    <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Category</label>
                     <select 
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
@@ -269,13 +269,13 @@ export default function Inventory() {
                     </select>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Units</label>
+                    <label className="text-[9px] font-black text-slate-300 tracking-widest px-4 uppercase">Quantity Unit</label>
                     <input 
                       type="text" 
                       required
                       value={unit}
                       onChange={(e) => setUnit(e.target.value)}
-                      placeholder="e.g. Kits"
+                      placeholder="e.g. Boxes"
                       className="w-full bg-slate-50 border border-slate-100 focus:border-blue-200 focus:bg-white rounded-full py-5 px-8 text-base font-bold transition-all outline-none" 
                     />
                   </div>
@@ -283,7 +283,7 @@ export default function Inventory() {
 
                 <div className="bg-slate-50/50 p-8 rounded-[35px] border border-slate-100">
                    <div className="flex items-center gap-8 justify-between">
-                      <p className="text-[9px] font-black text-slate-300 tracking-widest uppercase">Qty</p>
+                      <p className="text-[9px] font-black text-slate-300 tracking-widest uppercase">Stock Quantity</p>
                       <div className="flex items-center gap-6">
                         <button type="button" onClick={() => setQuantity(Math.max(0, quantity - 1))} className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl hover:bg-slate-900 hover:text-white transition-all text-xl font-black shadow-sm">-</button>
                         <input type="number" required value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-20 bg-transparent text-center text-4xl font-black outline-none no-spinner" />
@@ -297,9 +297,9 @@ export default function Inventory() {
                   disabled={submitting}
                   className="w-full bg-slate-900 hover:bg-blue-600 disabled:opacity-50 text-white py-6 rounded-full text-base font-black tracking-widest shadow-xl transition-all flex items-center justify-center gap-4 active:scale-95 group uppercase border-2 border-transparent hover:border-blue-100"
                 >
-                  {submitting ? 'Syncing...' : (
+                  {submitting ? 'Saving...' : (
                     <>
-                      <span>Push registry</span>
+                      <span>Save Resource</span>
                       <ArrowRight size={22} strokeWidth={3} className="group-hover:translate-x-2 transition-transform" />
                     </>
                   )}

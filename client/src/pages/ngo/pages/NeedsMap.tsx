@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { supabase } from '../../../supabaseClient';
 import { useAuthStore } from '../../../store/authStore';
 import axios from 'axios';
@@ -10,7 +10,6 @@ import {
   Navigation,
   ArrowRight,
   Clock,
-  ShieldAlert,
   Target
 } from 'lucide-react';
 
@@ -93,15 +92,15 @@ export default function NeedsMap() {
       <div className="flex flex-col md:flex-row justify-between items-end gap-10">
         <div className="flex flex-col gap-4 flex-1">
           <h2 className="text-6xl font-black text-slate-900 tracking-[-0.04em] leading-tight">
-            Relief Grid.
+            Relief Requests.
           </h2>
           <p className="text-lg font-medium text-slate-400 tracking-tight leading-relaxed max-w-xl border-l-4 border-blue-500 pl-6">
-            Emergency synchronization between field requests and regional logistics units.
+            Real-time monitoring of urgent needs from the field. Connect available resources with those who need them most.
           </p>
         </div>
         
         <div className="flex items-center gap-2 bg-white p-1.5 rounded-full border border-slate-100 shadow-sm overflow-hidden mb-2">
-           {['Active feed', 'Logs'].map((tab, i) => (
+           {['Active Requests', 'History'].map((tab, i) => (
              <button 
                key={tab}
                className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all cursor-pointer ${i === 0 ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-900'}`}
@@ -118,7 +117,7 @@ export default function NeedsMap() {
           <div className="flex items-center justify-between px-6">
             <h3 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-4 italic underline decoration-blue-500 decoration-2 underline-offset-4">
               <Activity className="text-blue-500" size={24} />
-              Open requests.
+              Pending Help Requests.
             </h3>
             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{needs.length} Active</span>
           </div>
@@ -130,8 +129,8 @@ export default function NeedsMap() {
               </div>
             ) : needs.length === 0 ? (
               <div className="p-16 text-center bg-white rounded-[40px] border border-slate-50 shadow-sm flex flex-col items-center">
-                <h4 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">Grid stable.</h4>
-                <p className="text-xs font-bold text-slate-400 max-w-xs leading-relaxed mt-2 uppercase tracking-widest opacity-60">No help requests detected.</p>
+                <h4 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">All clear.</h4>
+                <p className="text-xs font-bold text-slate-400 max-w-xs leading-relaxed mt-2 uppercase tracking-widest opacity-60">No pending help requests at this time.</p>
               </div>
             ) : (
               needs.map(need => (
@@ -142,7 +141,7 @@ export default function NeedsMap() {
                 >
                   <div className={`shrink-0 w-16 h-16 rounded-[22px] flex flex-col items-center justify-center transition-all duration-500 ${selectedNeed?.id === need.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-50 text-slate-400 border border-slate-100 shadow-inner group-hover:bg-white group-hover:border-blue-100 group-hover:text-blue-600'}`}>
                     <span className="text-3xl font-black tracking-tighter leading-none">{need.urgency}</span>
-                    <span className="text-[6px] font-black uppercase tracking-[0.2em] opacity-60">URGENCY</span>
+                    <span className="text-[6px] font-black uppercase tracking-[0.2em] opacity-60">LEVEL</span>
                   </div>
 
                   <div className="flex-1 space-y-2 relative z-10">
@@ -162,18 +161,18 @@ export default function NeedsMap() {
           </div>
         </div>
 
-        {/* Selected Need Analysis - Portal Block Scaled */}
+        {/* Selected Need Analysis */}
         <div className="space-y-6 sticky top-0 h-fit">
           <div className="flex items-center gap-4 px-6">
             <Target className="text-blue-500" size={24} />
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Dispatch node.</h3>
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Resource Matching.</h3>
           </div>
 
           {!selectedNeed ? (
             <div className="h-[600px] flex flex-col items-center justify-center text-center p-12 bg-white rounded-[50px] border border-slate-50 shadow-inner group relative overflow-hidden">
                <Navigation className="text-slate-200 group-hover:text-blue-500 transition-all mb-8 animate-bounce" size={40} />
-               <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase italic mb-2">Sync grid.</h3>
-               <p className="text-sm font-bold text-slate-400 max-w-xs tracking-tight opacity-60">Select an active help request to initialize AI relief matching.</p>
+               <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase italic mb-2">Find Matches.</h3>
+               <p className="text-sm font-bold text-slate-400 max-w-xs tracking-tight opacity-60">Select a help request to find available aid stock from nearby hubs.</p>
             </div>
           ) : (
             <motion.div 
@@ -187,7 +186,7 @@ export default function NeedsMap() {
                        <Zap size={24} className="fill-blue-600" />
                     </div>
                     <div>
-                      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-200 mb-1">Active analysis</p>
+                      <p className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-200 mb-1">Matching Analysis</p>
                       <h4 className="text-2xl font-black tracking-tight leading-none uppercase">{selectedNeed.title}</h4>
                     </div>
                  </div>
@@ -206,19 +205,19 @@ export default function NeedsMap() {
                  {matching ? (
                    <div className="flex flex-col items-center gap-6 py-16">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-lg"></div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400 animate-pulse">Syncing stock...</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400 animate-pulse">Finding matches...</p>
                    </div>
                  ) : (
                    <div className="space-y-6">
                       <div className="flex items-center justify-between px-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Asset Suggested</p>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-blue-400">AI Rank</span>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Suggested Supplies</p>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-blue-400">Match Rank</span>
                       </div>
 
                       <div className="space-y-3">
                         {matches.length === 0 ? (
                           <div className="p-10 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-40">
-                             <p className="text-[10px] font-black uppercase tracking-widest">No optimal matches</p>
+                             <p className="text-[10px] font-black uppercase tracking-widest">No matching stock found</p>
                           </div>
                         ) : (
                           matches.map((match, i) => (
@@ -232,12 +231,12 @@ export default function NeedsMap() {
                                <div className="w-14 h-14 rounded-2xl bg-white/5 flex flex-col items-center justify-center text-blue-400 border border-white/5 group-hover:scale-105 transition-all">
                                   <span className="text-2xl font-black leading-none">{match.match_score}</span>
                                   <span className="text-[6px] font-black uppercase tracking-widest mt-1 opacity-60">SCORE</span>
-                               </div>
+                                </div>
                                <div className="flex-1 space-y-1">
                                   <h5 className="font-black text-lg tracking-tight uppercase leading-none">{match.title}</h5>
                                   <div className="flex items-center gap-3">
-                                     <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{(match.distance / 1000).toFixed(1)} KM</span>
-                                     <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{match.quantity} units</span>
+                                     <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{(match.distance / 1000).toFixed(1)} KM Away</span>
+                                     <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{match.quantity} {match.unit}</span>
                                   </div>
                                </div>
                                <ArrowRight size={20} className="text-blue-500 group-hover:translate-x-1 transition-transform" />
@@ -251,7 +250,7 @@ export default function NeedsMap() {
               
               <div className="p-8 bg-black/20 backdrop-blur-xl border-t border-white/5">
                 <button className="w-full bg-white text-blue-600 hover:bg-blue-50 py-6 rounded-full text-base font-black uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-4 group">
-                   Initialize Dispatch <Zap size={20} className="fill-blue-600" />
+                   Allocate Resources <Zap size={20} className="fill-blue-600" />
                 </button>
               </div>
             </motion.div>

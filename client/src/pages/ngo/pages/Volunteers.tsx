@@ -52,10 +52,10 @@ export default function Volunteers() {
       <div className="flex flex-col md:flex-row justify-between items-end gap-10">
         <div className="flex flex-col gap-4 flex-1">
           <h2 className="text-6xl font-black text-slate-900 tracking-[-0.04em] leading-tight uppercase">
-            Field Teams.
+            Responders.
           </h2>
           <p className="text-lg font-medium text-slate-400 tracking-tight leading-relaxed max-w-xl border-l-4 border-blue-500 pl-6">
-            Network of certified responders and NGO coordinators across the Himachal relief grid.
+            Network of certified humanitarian responders and coordinators dedicated to the relief mission.
           </p>
         </div>
         
@@ -63,7 +63,7 @@ export default function Volunteers() {
            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
            <input 
              type="text" 
-             placeholder="Search responders..." 
+             placeholder="Search by name or email..." 
              value={searchTerm}
              onChange={(e) => setSearchTerm(e.target.value)}
              className="w-full bg-white border border-slate-100 focus:border-blue-200 focus:ring-[8px] focus:ring-blue-500/5 rounded-full py-4 pl-14 pr-6 text-sm font-semibold transition-all outline-none"
@@ -95,7 +95,7 @@ export default function Volunteers() {
                  </div>
                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                       <span className="text-[8px] font-black uppercase text-blue-600 tracking-widest bg-blue-50 px-2 py-0.5 rounded-full">NGO Verified</span>
+                       <span className="text-[8px] font-black uppercase text-blue-600 tracking-widest bg-blue-50 px-2 py-0.5 rounded-full">Verified</span>
                     </div>
                     <h4 className="text-xl font-black text-slate-900 tracking-tight leading-none uppercase">{v.full_name || 'Anonymous'}</h4>
                     <div className="flex items-center gap-1.5 opacity-40">
@@ -109,7 +109,7 @@ export default function Volunteers() {
                   <div className="flex items-center justify-between text-slate-400">
                      <div className="flex items-center gap-3">
                         <MapPin size={14} />
-                        <span className="text-xs font-bold">{v.location || 'Shimla Sector'}</span>
+                        <span className="text-xs font-bold">{v.location || 'Regional Hub'}</span>
                      </div>
                      <Award size={16} className="text-blue-500" />
                   </div>
