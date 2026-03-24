@@ -6,18 +6,15 @@ During a massive disaster in Himachal, internet backbones often snap. We use **l
 ## Key Workflows:
 
 ### 1. Intelligent Matching & Scoring
--   **Prompt:** Given a list of Available Resources [A, B, C] and a critical Need [N], which Resource is the best match?
--   **Benefit:** LLMs understand *context* (e.g., "Tarps" can help with "Shelter", whereas a primitive keyword search might miss it).
+-   **Ollama Web Context:** Leveraging local LLM contexts to match disparate descriptions in Hindi and English.
+-   **RAG for Mobile Help:** A vector database containing disaster manuals (First Aid, Mountaineering Safety) used by the Expo app to provide expert "Offline" advice.
 
-### 2. Urgency Triage
--   **Process:** Field workers post raw text notes ("Landslide near bridge, people cold, 2 toddlers need milk").
--   **AI Task:** Categorize (Food/Clothing), extract entities (Need: Milk, Target: Toddlers), and assign an Urgency Score (1-10).
+### 2. Urgency Triage (Multilingual)
+-   **Process:** Field workers post notes in Hindi or English.
+-   **AI Task:** Categorize (Food/Clothing), extract entities, and assign an Urgency Score (1-10).
 
-### 3. Multilingual Translation
--   **Task:** Translate Pahari/Hindi local dialects into structured English reports for international NGOs or centralized authorities.
-
-### 4. Summary Generation
--   **Task:** Summarize the local situation into a 3-sentence brief for decision-makers.
+### 3. Translation & Summarization
+-   **Task:** Instant translation for the unified mobile app interface.
 
 ## Local API Implementation
 -   The Node.js backend will communicate with a local Ollama instance (running on `localhost:11434`).

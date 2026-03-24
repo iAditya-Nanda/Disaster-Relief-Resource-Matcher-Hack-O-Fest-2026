@@ -8,16 +8,18 @@ This project is designed to win **Hack-O-Fest 2026** by leveraging local AI (Oll
 | File | Purpose | Key Focus |
 | :--- | :--- | :--- |
 | [1_CONCEPT.md](./1_CONCEPT.md) | Vision & Focus | Himachal terrain, remote villages, local-first logic. |
-| [2_POC_SCOPE.md](./2_POC_SCOPE.md) | Hackathon MVP | NGO vs. Needy dashboards, AI matching, Map View. |
-| [3_AI_INTEGRATION.md](./3_AI_INTEGRATION.md) | Ollama Strategy | Local LLM inference, urgency scoring, triage. |
-| [4_TECH_ARCHITECTURE.md](./4_TECH_ARCHITECTURE.md) | Stack & Data | React, Node.js, Supabase, Leaflet. |
+| [2_POC_SCOPE.md](./2_POC_SCOPE.md) | Expanded MVP | Mobile App (Expo), Doctor Helpline, Blood Donors, QR Tracking. |
+| [3_AI_INTEGRATION.md](./3_AI_INTEGRATION.md) | Ollama & RAG | Local LLM inference, Triage, multilingual RAG (Hindi/English). |
+| [4_TECH_ARCHITECTURE.md](./4_TECH_ARCHITECTURE.md) | Stack & Data | React, Expo, Node, Supabase, Leaflet. |
 | [5_PRESENTATION.md](./5_PRESENTATION.md) | Pitch Deck | Why we win, the hook, impact. |
 
-## Next Steps (Development Phase)
-1.  **Backend Core:** Init Express server and Supabase client.
-2.  **Ollama Bridge:** Create the middleware to talk to the local Ollama API.
-3.  **Frontend Shell:** Scaffold the React dashboard with Tailwind and Framer Motion.
-4.  **Map Integration:** Set up the Leaflet map with mock disaster data for Himachal.
+## Phased Implementation Roadmap
+Explore the detailed timeline in the `phases/` folder:
+- **[Phase 1: Foundation](./../phases/Phase_1_Foundation.md)**
+- **[Phase 2: Mobile & AI](./../phases/Phase_2_Mobile_and_AI.md)**
+- **[Phase 3: Medical & Blood](./../phases/Phase_3_Medical_and_Blood.md)**
+- **[Phase 4: Tracking & Logistics](./../phases/Phase_4_Tracking_and_Logistics.md)**
+- **[Phase 5: Polish & Deployment](./../phases/Phase_5_Hackathon_Polish.md)**
 
 ---
 *Created for Hack-O-Fest 2026*
