@@ -14,12 +14,8 @@ This project is designed to win **Hack-O-Fest 2026** by leveraging local AI (Oll
 | [5_PRESENTATION.md](./5_PRESENTATION.md) | Pitch Deck | Why we win, the hook, impact. |
 
 ## Phased Implementation Roadmap
-Explore the detailed timeline in the `phases/` folder:
-- **[Phase 1: Foundation](./../phases/Phase_1_Foundation.md)**
-- **[Phase 2: Mobile & AI](./../phases/Phase_2_Mobile_and_AI.md)**
-- **[Phase 3: Medical & Blood](./../phases/Phase_3_Medical_and_Blood.md)**
-- **[Phase 4: Tracking & Logistics](./../phases/Phase_4_Tracking_and_Logistics.md)**
-- **[Phase 5: Polish & Deployment](./../phases/Phase_5_Hackathon_Polish.md)**
+Explore the detailed and granular timeline in the `phases/` folder:
+- **[Full Roadmap Index (Frontend, Backend, Deployment)](./../phases/ROADMAP.md)**
 
 ---
 *Created for Hack-O-Fest 2026*
