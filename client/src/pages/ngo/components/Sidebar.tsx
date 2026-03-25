@@ -11,7 +11,7 @@ import { useAuthStore } from '../../../store/authStore';
 
 const menuItems = [
   { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, path: '/ngo' },
-  { id: 'inventory', label: 'Resource Hub', icon: Package, path: '/ngo/inventory' },
+  { id: 'inventory', label: 'Inventory', icon: Package, path: '/ngo/inventory' },
   { id: 'needs', label: 'Need Map', icon: Map, path: '/ngo/needs' },
   { id: 'volunteers', label: 'Volunteers', icon: Users, path: '/ngo/volunteers' },
 ];

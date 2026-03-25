@@ -36,11 +36,11 @@ export default function Inventory() {
   
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Food');
-  const [quantity, setQuantity] = useState(0);
+  const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState('Units');
   const [submitting, setSubmitting] = useState(false);
 
-  const { session } = useAuthStore();
+  const { session, user } = useAuthStore();
 
   useEffect(() => {
     fetchResources();
@@ -49,6 +49,10 @@ export default function Inventory() {
   const fetchResources = async () => {
     setLoading(true);
     try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
       const { data, error } = await supabase
         .from('resources')
         .select('*')
@@ -71,11 +75,13 @@ export default function Inventory() {
       navigator.geolocation.getCurrentPosition(async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
         
+        const headers: Record<string, string> = {};
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+        if (user?.id) headers['x-test-user-id'] = user.id;
+
         const res = await axios.post(`${API_URL}/api/resources`, {
           title, category, quantity, unit, lat, lng
-        }, {
-          headers: { Authorization: `Bearer ${session?.access_token}` }
-        });
+        }, { headers });
 
         if (res.status === 201) {
           setIsModalOpen(false);

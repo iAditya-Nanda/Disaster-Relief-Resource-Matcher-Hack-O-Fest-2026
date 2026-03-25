@@ -9,9 +9,10 @@ import PageTransition from './components/PageTransition';
 // Pages
 import AuthPage from './pages/Auth';
 import NgoDashboard from './pages/ngo';
-import NeedyDashboard from './pages/NeedyDashboard';
+import NeedyDashboard from './pages/needy';
 import DoctorDashboard from './pages/doctor';
 import AdminDashboard from './pages/AdminDashboard';
+import LandingPage from './pages/LandingPage';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -19,6 +20,9 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname.split('/')[1]}>
+        {/* Landing Page Route */}
+        <Route path="/" element={<LandingPage />} />
+
         <Route path="/auth" element={
           <PageTransition>
             <AuthPage />
@@ -57,7 +61,6 @@ function AnimatedRoutes() {
           } />
         </Route>
 
-        <Route path="/" element={<Navigate to="/auth" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>

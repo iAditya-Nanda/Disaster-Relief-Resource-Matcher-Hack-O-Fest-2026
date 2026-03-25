@@ -9,23 +9,39 @@ import {
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { StatCardSkeleton, MapSkeleton } from '../components/Skeleton';
+import axios from 'axios';
+import { useAuthStore } from '../../../store/authStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function DashboardHome() {
-  const [stats] = useState({
-    resources: 1240,
-    needs: 84,
-    matches: 412,
-    volunteers: 56,
-    grid_integrity: 'Secure'
+  const [stats, setStats] = useState({
+    resources: 0,
+    needs: 0,
+    matches: 0,
+    volunteers: 0,
+    grid_integrity: 'Scanning...'
   });
   const [loading, setLoading] = useState(true);
+  const { session, user } = useAuthStore();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const fetchStats = async () => {
+      try {
+        const headers: Record<string, string> = {};
+        if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+        if (user?.id) headers['x-test-user-id'] = user.id;
+
+        const res = await axios.get(`${API_URL}/api/stats/v1/dashboard`, { headers });
+        setStats(res.data);
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      } finally {
         setLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
+      }
+    };
+    fetchStats();
+  }, [session]);
 
   const statCards = [
     { label: 'Aid Stock', value: stats.resources, image: '/icons/NGO/inventory.png', trend: 'In Stock', color: 'text-blue-600', bg: 'bg-blue-50' },

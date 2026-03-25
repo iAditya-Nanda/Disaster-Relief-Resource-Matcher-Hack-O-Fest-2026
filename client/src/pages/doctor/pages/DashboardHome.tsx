@@ -10,10 +10,12 @@ import {
   Stethoscope
 } from 'lucide-react';
 import { CardSkeleton, HeaderSkeleton, TriageItemSkeleton } from '../components/Skeleton';
+import { supabase } from '../../../supabaseClient';
 
 export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
-  const [stats] = useState({
+  const [patients, setPatients] = useState<any[]>([]);
+  const [stats, setStats] = useState({
     patientQueue: '14',
     medications: '280',
     bloodStock: '32 Units',
@@ -21,14 +23,36 @@ export default function DashboardHome() {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
+    fetchDashboardData();
   }, []);
 
+  const fetchDashboardData = async () => {
+     try {
+       // Fetch latest 3 emergencies
+       const { data: latestPatients, error } = await supabase
+         .from('needs')
+         .select('*, profiles:requester_id(full_name)')
+         .eq('category', 'Medical')
+         .in('status', ['opened', 'pending', 'in_progress'])
+         .order('urgency', { ascending: false })
+         .limit(3);
+         
+       if (!error && latestPatients) {
+         setPatients(latestPatients);
+         setStats(prev => ({
+            ...prev,
+            patientQueue: latestPatients.length.toString()
+         }));
+       }
+     } catch (err) {
+       console.error(err);
+     } finally {
+       setLoading(false);
+     }
+  };
+
   const statCards = [
-    { label: 'Triage Queue', value: stats.patientQueue, icon: Stethoscope, color: 'text-rose-600', bg: 'bg-rose-50' },
+    { label: 'Emergency Queue', value: stats.patientQueue, icon: Stethoscope, color: 'text-rose-600', bg: 'bg-rose-50' },
     { label: 'Medical Stock', value: stats.medications, icon: Package, color: 'text-rose-600', bg: 'bg-rose-50' },
     { label: 'Blood Reserve', value: stats.bloodStock, icon: Droplets, color: 'text-rose-600', bg: 'bg-rose-50' },
     { label: 'Network Uptime', value: '100%', icon: Zap, color: 'text-rose-600', bg: 'bg-rose-50' },
@@ -104,28 +128,36 @@ export default function DashboardHome() {
                <div className="flex items-center justify-between px-4">
                   <div className="flex flex-col gap-2 relative">
                     <div className="absolute -left-6 top-0 w-1.5 h-full bg-rose-600 rounded-full"></div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Triage Queue.</h3>
-                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest">Patients waiting for checkup</p>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight italic">Emergency Queue.</h3>
+                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest">Patients waiting for triage checkup</p>
                   </div>
                </div>
                
                <div className="bg-white border border-slate-100 shadow-sm rounded-[50px] p-6 space-y-4">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="flex items-center gap-6 p-6 rounded-[35px] hover:bg-rose-50/50 hover:border-rose-100 border border-transparent transition-all group cursor-pointer">
-                      <div className="w-16 h-16 bg-white border border-slate-100 rounded-2xl flex flex-col items-center justify-center shadow-sm group-hover:bg-rose-500 group-hover:text-white transition-all duration-500">
-                        <span className="text-[10px] font-black grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all uppercase">PRTY</span>
-                        <span className="text-xl font-black">{i}</span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-none">Serious Case</h4>
-                          <div className="px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full text-[8px] font-black tracking-widest uppercase">EMERGENCY</div>
+                  {patients.length === 0 ? (
+                     <div className="p-10 text-center flex flex-col items-center justify-center opacity-60">
+                        <Activity className="text-slate-300 mb-4" size={40} />
+                        <h4 className="text-xl font-black text-slate-900 tracking-tight uppercase">Queue Clean</h4>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">No emergency logs available</p>
+                     </div>
+                  ) : (
+                    patients.map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-6 p-6 rounded-[35px] hover:bg-rose-50/50 hover:border-rose-100 border border-transparent transition-all group cursor-pointer">
+                        <div className="w-16 h-16 bg-white border border-slate-100 rounded-2xl flex flex-col items-center justify-center shadow-sm group-hover:bg-rose-500 group-hover:text-white transition-all duration-500">
+                          <span className="text-[10px] font-black grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all uppercase">PRTY</span>
+                          <span className="text-xl font-black">{p.urgency}</span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mandi Area 7 | <span className="text-rose-500">1.2km away</span></p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h4 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-none">{p.profiles?.full_name || 'Patient'}</h4>
+                            <div className="px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full text-[8px] font-black tracking-widest uppercase">{p.urgency > 5 ? 'EMERGENCY' : 'STANDARD'}</div>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Symptom Log | <span className="text-rose-500">{new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
+                        </div>
+                        <ChevronRight size={24} className="text-slate-100 group-hover:text-rose-600 group-hover:translate-x-2 transition-all"/>
                       </div>
-                      <ChevronRight size={24} className="text-slate-100 group-hover:text-rose-600 group-hover:translate-x-2 transition-all"/>
-                    </div>
-                  ))}
+                    ))
+                  )}
                </div>
             </div>
 

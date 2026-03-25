@@ -87,4 +87,125 @@ const checkSemanticRelevance = async (needText, resourceText) => {
   }
 };
 
-module.exports = { triageNeedWithAI, checkSemanticRelevance };
+// Matches a user's need against available NGO resources
+const generateIntelligentMatchResponse = async (userMessage, allResources, chatHistory = []) => {
+  try {
+    const resourceContext = allResources.map(r => 
+      `- ${r.title} (Category: ${r.category}, Qty: ${r.quantity} ${r.unit || ''}, Status: ${r.status}) provided by ${r.profiles?.full_name || 'NGO'}`
+    ).join('\n');
+
+    const historyContext = chatHistory.map(m => `${m.sender_id === 'ai' ? 'AI' : 'User'}: ${m.text}`).join('\n');
+
+    const prompt = `
+      You are the Himachal-Sahayata AI Relief Coordinator.
+      
+      CONTEXT (NGO INVENTORY):
+      ${resourceContext}
+
+      CHAT HISTORY:
+      ${historyContext}
+
+      USER MESSAGE:
+      "${userMessage}"
+
+      TASK:
+      1. Analyze if the user's need can be fulfilled by any of the available resources.
+      2. If a match is found, clearly state which NGO/resource can help.
+      3. If no exact match is found, provide guidance or ask for more details.
+      4. Maintain the personality: Protective, loyal, and efficient.
+      5. Output ONLY a valid JSON object.
+
+      JSON SCHEMA:
+      {
+        "speech": "concise guidance including match details if any",
+        "match_found": true/false,
+        "matched_resource_id": "uuid of the resource if matched",
+        "category": "Food/Medicine/Shelter/Blood/Rescue",
+        "urgency": 1-10
+      }
+    `;
+
+    const data = {
+      model: OLLAMA_CLOUD_MODEL,
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+      stream: false
+    };
+
+    const response = await axios.post(`${OLLAMA_CLOUD_HOST}/api/chat`, data, {
+      headers: {
+        'Authorization': `Bearer ${OLLAMA_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const rawContent = response.data.message.content;
+    // Clean up potential markdown formatting if AI returns it
+    const jsonStr = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error('AI Match Error:', error.response ? error.response.data : error.message);
+    return { 
+      speech: "I am having trouble accessing the central database. Please tell me what you need clearly.",
+      match_found: false,
+      category: 'Other',
+      urgency: 5
+    };
+  }
+};
+
+const generateMedicalTriageResponse = async (userMessage, chatHistory = []) => {
+  try {
+    const historyContext = chatHistory.map(m => `${m.sender_id === null ? 'AI' : 'User'}: ${m.text}`).join('\n');
+
+    const prompt = `
+      You are the Himachal-Sahayata AI Medical Triage Assistant.
+      
+      CHAT HISTORY:
+      ${historyContext}
+
+      USER MESSAGE:
+      "${userMessage}"
+
+      TASK:
+      1. Analyze the user's medical symptoms based on the message.
+      2. If it is a simple help/injury (Urgency 1-6), provide basic first aid guidance but specify you are an AI. Set connect_doctor to false.
+      3. If it is severe, life-threatening, urgent (Urgency 7-10), OR the user explicitly requests a doctor, output connect_doctor: true and advise them a doctor is being connected.
+      4. Output ONLY a valid JSON object.
+
+      JSON SCHEMA:
+      {
+        "speech": "concise medical guidance",
+        "connect_doctor": true/false,
+        "category": "Medical",
+        "urgency": 1-10
+      }
+    `;
+
+    const data = {
+      model: OLLAMA_CLOUD_MODEL,
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
+      stream: false
+    };
+
+    const response = await axios.post(`${OLLAMA_CLOUD_HOST}/api/chat`, data, {
+      headers: {
+        'Authorization': `Bearer ${OLLAMA_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const rawContent = response.data.message.content;
+    const jsonStr = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error('AI Medical Error:', error.response ? error.response.data : error.message);
+    return { 
+      speech: "I am having trouble connecting to medical services. If this is an emergency, seek immediate local help.",
+      connect_doctor: false,
+      category: 'Medical',
+      urgency: 10
+    };
+  }
+};
+
+module.exports = { triageNeedWithAI, checkSemanticRelevance, generateIntelligentMatchResponse, generateMedicalTriageResponse };

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../../supabaseClient';
+
 import { 
   Users, 
   Mail, 
@@ -10,15 +10,21 @@ import {
   Phone,
   ChevronRight,
   ShieldCheck,
-  Star
+  Star,
+  Plus,
+  X,
 } from 'lucide-react';
+import { useAuthStore } from '../../../store/authStore';
+import axios from 'axios';
 import { HeaderSkeleton, ItemCardSkeleton } from '../components/Skeleton';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface Volunteer {
   id: string;
-  full_name: string;
-  email: string;
-  role: string;
+  name: string;
+  skills: string;
+  status: string;
   location?: string;
 }
 
@@ -26,25 +32,76 @@ export default function Volunteers() {
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [skills, setSkills] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { session, user } = useAuthStore();
 
   useEffect(() => {
-    async function fetchVolunteers() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'NGO')
-        .order('full_name', { ascending: true });
-      
-      if (!error) setVolunteers(data || []);
+    fetchVolunteers();
+  }, [session]);
+
+  const fetchVolunteers = async () => {
+    setLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      const { data } = await axios.get(`${API_URL}/api/volunteers/my-volunteers`, { headers });
+      setVolunteers(data.data || []);
+    } catch (err) {
+      console.error('Error fetching volunteers:', err);
+    } finally {
       setTimeout(() => setLoading(false), 900);
     }
-    fetchVolunteers();
-  }, []);
+  };
+
+  const handleAddVolunteer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    
+    try {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        await submitVolunteer(lat, lng);
+      }, async () => {
+        // Submit without precise location
+        await submitVolunteer();
+      });
+    } catch (err) {
+      console.error('Add volunteer error:', err);
+      setSubmitting(false);
+    }
+  };
+
+  const submitVolunteer = async (lat?: number, lng?: number) => {
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      const res = await axios.post(`${API_URL}/api/volunteers/add`, {
+        name, skills, status: 'available', lat, lng
+      }, { headers });
+      if (res.status === 201) {
+        setIsModalOpen(false);
+        fetchVolunteers();
+        setName('');
+        setSkills('');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filtered = volunteers.filter(v => 
-    v.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    v.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.skills?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -74,15 +131,24 @@ export default function Volunteers() {
                 </p>
               </div>
               
-              <div className="relative group w-full md:w-96 mb-2 border-b-2 border-slate-200 focus-within:border-blue-600 transition-colors pb-2">
-                 <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                 <input 
-                   type="text" 
-                   placeholder="Filter responders..." 
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="w-full bg-transparent pl-8 pr-4 text-xs font-black tracking-tight outline-none placeholder:text-slate-200"
-                 />
+              <div className="flex items-center gap-4 w-full md:w-auto mb-2">
+                 <div className="relative group w-full md:w-80 border-b-2 border-slate-200 focus-within:border-blue-600 transition-colors pb-2">
+                    <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="Filter responders..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-transparent pl-8 pr-4 text-xs font-black tracking-tight outline-none placeholder:text-slate-200"
+                    />
+                 </div>
+                 <button 
+                   onClick={() => setIsModalOpen(true)}
+                   className="flex items-center gap-3 bg-slate-900 hover:bg-blue-600 text-white px-8 py-5 rounded-[25px] text-[10px] font-black tracking-tight shadow-xl transition-all group shrink-0"
+                 >
+                   <Plus size={16} strokeWidth={3} className="group-hover:rotate-90 transition-transform" />
+                   Add Responder
+                 </button>
               </div>
             </div>
 
@@ -107,8 +173,8 @@ export default function Volunteers() {
                      <div className="flex items-center gap-8 relative z-10">
                        <div className="w-20 h-20 rounded-[30px] bg-slate-50 p-1 border-2 border-white shadow-xl overflow-hidden shrink-0 group-hover:rotate-6 transition-transform duration-500 scale-110">
                           <img 
-                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${v.email}`} 
-                            alt={v.full_name} 
+                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${v.name}`} 
+                            alt={v.name} 
                             className="w-full h-full object-cover rounded-[25px]"
                           />
                        </div>
@@ -117,10 +183,10 @@ export default function Volunteers() {
                              <span className="text-[10px] font-black text-blue-600 bg-blue-50/50 px-4 py-1 rounded-full border border-blue-100 tracking-tight">Verified</span>
                              <Star size={10} className="text-amber-400 fill-amber-400" />
                           </div>
-                          <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none group-hover:text-blue-600 transition-colors">{v.full_name || 'Responder'}</h4>
+                          <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none group-hover:text-blue-600 transition-colors">{v.name || 'Responder'}</h4>
                           <div className="flex items-center gap-2 opacity-50">
                              <Mail size={12} className="text-slate-400" />
-                             <span className="text-[11px] font-bold tracking-tight text-slate-500 truncate max-w-[120px]">{v.email}</span>
+                             <span className="text-[11px] font-bold tracking-tight text-slate-500 truncate max-w-[120px]">{v.skills || 'No specific skills listed'}</span>
                           </div>
                        </div>
                      </div>
@@ -157,6 +223,76 @@ export default function Volunteers() {
             )}
           </>
         )}
+
+        {/* Add Modal */}
+        <AnimatePresence>
+          {isModalOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsModalOpen(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-3xl"
+              ></motion.div>
+              <motion.div 
+                initial={{ opacity: 0, y: 100, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 100, scale: 0.95 }}
+                className="bg-white w-full max-w-xl rounded-[60px] shadow-2xl relative z-10 overflow-hidden border-8 border-white"
+              >
+                <div className="p-12 pb-6 flex justify-between items-center border-b border-slate-50">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-4xl font-black text-slate-900 tracking-tight leading-none">Add Responder.</h3>
+                    <p className="text-[10px] font-black text-slate-400 tracking-tight uppercase">Register new volunteer to force</p>
+                  </div>
+                  <button onClick={() => setIsModalOpen(false)} className="w-14 h-14 flex items-center justify-center text-slate-200 hover:text-slate-900 bg-slate-50 rounded-2xl transition-all">
+                    <X size={28} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddVolunteer} className="p-12 space-y-10">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-300 tracking-tight px-6 uppercase">Full Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-100 focus:bg-white focus:ring-[15px] focus:ring-blue-500/5 rounded-[30px] py-6 px-10 text-lg font-black transition-all outline-none placeholder:text-slate-200" 
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-300 tracking-tight px-6 uppercase">Skills / Capabilities</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={skills}
+                      onChange={(e) => setSkills(e.target.value)}
+                      placeholder="e.g. First Aid, Search & Rescue"
+                      className="w-full bg-slate-50 border-2 border-transparent focus:border-blue-100 focus:bg-white border-blue-500/5 rounded-[30px] py-6 px-10 text-lg font-black transition-all outline-none placeholder:text-slate-200"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={submitting}
+                    className="w-full bg-slate-900 hover:bg-blue-600 disabled:opacity-50 text-white py-8 rounded-[35px] text-lg font-black tracking-tight shadow-2xl transition-all flex items-center justify-center gap-6 active:scale-95 group uppercase border-4 border-white/10"
+                  >
+                    {submitting ? 'Registering...' : (
+                      <>
+                        <span>Add to Force</span>
+                        <ChevronRight size={24} strokeWidth={3} className="group-hover:translate-x-2 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </AnimatePresence>
   );

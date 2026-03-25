@@ -25,4 +25,19 @@ router.get('/v1/dashboard', async (req, res) => {
   }
 });
 
+router.get('/v1/ngos', async (req, res) => {
+  try {
+    const { data: ngos, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, lat_lng')
+      .eq('role', 'NGO');
+
+    if (error) throw error;
+    res.json({ data: ngos || [] });
+  } catch (err) {
+    console.error('Fetch ngos err:', err);
+    res.status(500).json({ error: 'Failed to fetch NGOs' });
+  }
+});
+
 module.exports = router;

@@ -43,8 +43,9 @@ export default function NeedsMap() {
   const [selectedNeed, setSelectedNeed] = useState<Need | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [matching, setMatching] = useState(false);
+  const [needChat, setNeedChat] = useState<any[]>([]);
   
-  const { session } = useAuthStore();
+  const { session, user } = useAuthStore();
 
   useEffect(() => {
     fetchNeeds();
@@ -56,7 +57,7 @@ export default function NeedsMap() {
       const { data, error } = await supabase
         .from('needs')
         .select('*')
-        .eq('status', 'pending')
+        .in('status', ['pending', 'created', 'opened', 'in_progress'])
         .order('urgency', { ascending: false });
       
       if (error) throw error;
@@ -72,14 +73,27 @@ export default function NeedsMap() {
     setSelectedNeed(need);
     setMatching(true);
     setMatches([]);
+    setNeedChat([]);
     
     try {
-      const res = await axios.get(`${API_URL}/api/matches/need/${need.id}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` }
-      });
+      // 1. Fetch Matches
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      const res = await axios.get(`${API_URL}/api/matches/need/${need.id}`, { headers });
       setMatches(res.data || []);
+
+      // 2. Fetch Chat History
+      const chatRes = await supabase
+        .from('need_messages')
+        .select('*')
+        .eq('need_id', need.id)
+        .order('created_at', { ascending: true });
+      
+      setNeedChat(chatRes.data || []);
     } catch (err) {
-      console.error('Error finding matches:', err);
+      console.error('Error finding matches/chat:', err);
     } finally {
       setMatching(false);
     }
@@ -171,7 +185,10 @@ export default function NeedsMap() {
                              </div>
                           </div>
                           <h4 className={`text-2xl font-black tracking-tight leading-none ${selectedNeed?.id === need.id ? 'text-slate-900' : 'text-slate-700'}`}>{need.title}</h4>
-                          <p className="text-[12px] text-slate-400 font-bold tracking-tight line-clamp-1 opacity-70">"{need.description}"</p>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${need.status === 'in_progress' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{need.status}</span>
+                            <p className="text-[12px] text-slate-400 font-bold tracking-tight line-clamp-1 opacity-70">"{need.description}"</p>
+                          </div>
                         </div>
 
                         <ChevronRight size={28} className={`transition-all duration-500 ${selectedNeed?.id === need.id ? 'text-blue-600 translate-x-2' : 'text-slate-100 group-hover:text-slate-300'}`} />
@@ -226,11 +243,15 @@ export default function NeedsMap() {
                       </div>
 
                       <div className="flex-1 p-12 overflow-y-auto no-scrollbar space-y-10">
-                         <div className="bg-white/5 p-8 rounded-[35px] border border-white/5 shadow-inner">
-                            <p className="text-lg font-black leading-relaxed text-blue-50/70 tracking-tight">
-                              "{selectedNeed.description}"
-                            </p>
-                         </div>
+                          <div className="bg-white/5 p-8 rounded-[35px] border border-white/5 shadow-inner space-y-4">
+                             <p className="text-lg font-black leading-relaxed text-blue-50/70 tracking-tight italic">
+                               "{selectedNeed.description}"
+                             </p>
+                             <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                                <span className="text-[10px] font-black tracking-widest uppercase text-blue-400 opacity-60">AI Intelligence Report</span>
+                             </div>
+                          </div>
 
                          {matching ? (
                            <div className="flex flex-col items-center gap-10 py-20">
@@ -238,11 +259,34 @@ export default function NeedsMap() {
                               <p className="text-[11px] font-black tracking-tight text-blue-400 animate-pulse">Syncing stock...</p>
                            </div>
                          ) : (
-                           <div className="space-y-8">
-                              <div className="flex items-center justify-between px-4">
-                                <p className="text-[10px] font-black text-white/30">Supplies Catalog</p>
-                                <span className="text-[10px] font-black text-blue-400">Core Rank</span>
+                           <div className="space-y-10">
+                              {/* Chat Transcript Section */}
+                              <div className="space-y-6">
+                                 <p className="text-[10px] font-black text-white/30 uppercase tracking-widest px-4">Emergency Transcript</p>
+                                 <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar pr-2">
+                                    {needChat.length === 0 ? (
+                                       <p className="text-[10px] text-white/20 italic px-4">No transcript available</p>
+                                    ) : (
+                                       needChat.map((msg, i) => (
+                                          <div key={i} className={`p-5 rounded-[28px] ${msg.is_ai ? 'bg-blue-600/10 border border-blue-600/20' : 'bg-white/5 border border-white/5'}`}>
+                                             <div className="flex items-center gap-2 mb-2">
+                                                <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded ${msg.is_ai ? 'bg-blue-600 text-white' : 'bg-white/20 text-white/50'}`}>
+                                                   {msg.is_ai ? 'AI Coordinator' : 'Requester'}
+                                                </span>
+                                                <span className="text-[8px] text-white/20 font-bold">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                             </div>
+                                             <p className="text-sm font-medium text-white/70 leading-relaxed">{msg.text}</p>
+                                          </div>
+                                       ))
+                                    )}
+                                 </div>
                               </div>
+
+                              <div className="space-y-8">
+                                 <div className="flex items-center justify-between px-4">
+                                   <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Inventory Match Analysis</p>
+                                   <span className="text-[10px] font-black text-blue-400">Core Rank</span>
+                                 </div>
 
                               <div className="space-y-4">
                                 {matches.length === 0 ? (
@@ -281,6 +325,7 @@ export default function NeedsMap() {
                                 )}
                               </div>
                            </div>
+                        </div>
                          )}
                       </div>
                       
