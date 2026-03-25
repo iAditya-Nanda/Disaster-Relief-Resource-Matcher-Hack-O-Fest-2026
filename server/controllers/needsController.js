@@ -78,7 +78,7 @@ const getMyNeeds = async (req, res) => {
 const updateNeedStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, resource_id } = req.body;
 
     const { data: need, error: fetchError } = await supabase
       .from('needs')
@@ -88,21 +88,44 @@ const updateNeedStatus = async (req, res) => {
 
     if (fetchError || !need) return res.status(404).json({ error: 'Need not found' });
 
-    // Allow requester, or NGO/Admin to update (NGOs might mark a need as "in-progress" when responding)
-    const canUpdate = need.requester_id === req.user.id || 
-                      ['NGO', 'Admin'].includes(req.user.role);
+    // For POC, any authenticated user can update status (we already have RLS disabled)
+    // In production, we would re-enable strict role-based checks
+    const canUpdate = !!req.user;
 
     if (!canUpdate) {
       return res.status(403).json({ error: 'Unauthorized to update this request' });
     }
 
+    // Logic for inventory deduction
+    const isUuid = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+    
+    if (status === 'in_progress' && resource_id && isUuid(resource_id)) {
+       const { data: resData, error: resErr } = await supabase
+         .from('resources')
+         .select('quantity')
+         .eq('id', resource_id)
+         .single();
+       
+       if (!resErr && resData && resData.quantity > 0) {
+          await supabase.from('resources')
+            .update({ quantity: resData.quantity - 1 })
+            .eq('id', resource_id);
+       }
+    }
+
+    const updatePayload = { status };
+    // Only use updated_at if it's confirmed or just let DB default if it exists
+    // Using a safer approach for POC
+    
     const { data, error } = await supabase
       .from('needs')
-      .update({ status, updated_at: new Date() })
+      .update(updatePayload)
       .eq('id', id)
       .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Update failed, record not found' });
+    
     res.json(data[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

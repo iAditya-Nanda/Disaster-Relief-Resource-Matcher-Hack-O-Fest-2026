@@ -15,3 +15,16 @@
     @apply antialiased font-sans bg-slate-50 text-slate-900;
   }
 }
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .glass {
+    @apply bg-white/40 backdrop-blur-xl border border-white shadow-2xl;
+  }
+}

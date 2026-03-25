@@ -48,7 +48,7 @@ export default function AuthPage() {
       desc: 'Medical node for patient queue and checkups',
       icon: '/icons/doctor.png',
       path: '/doctor',
-      userId: 'e1234567-doctor-4000-8000-1234567890ab',
+      userId: 'e1234567-d0c7-4000-8000-1234567890ab',
       color: 'rose-600',
     },
     {
@@ -58,7 +58,7 @@ export default function AuthPage() {
       desc: 'Hub for global command and oversight',
       icon: '/icons/admin.png',
       path: '/admin',
-      userId: 'admin-master-0000-8000-000000000000',
+      userId: 'ad111111-0000-4000-8000-000000000000',
       color: 'amber-600',
     }
   ];

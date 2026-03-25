@@ -11,7 +11,7 @@ import AuthPage from './pages/Auth';
 import NgoDashboard from './pages/ngo';
 import NeedyDashboard from './pages/needy';
 import DoctorDashboard from './pages/doctor';
-import AdminDashboard from './pages/AdminDashboard';
+import AdminDashboard from './pages/admin-dashboard';
 import LandingPage from './pages/LandingPage';
 
 function AnimatedRoutes() {

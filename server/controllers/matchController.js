@@ -65,8 +65,12 @@ const findMatchesForNeed = async (req, res) => {
             .eq('id', id)
             .single();
 
-        if (needError || !need || !need.location) {
-            return res.status(404).json({ error: 'Need not found or has no active geodata.' });
+        if (needError || !need) {
+            return res.status(404).json({ error: 'Need not found.' });
+        }
+
+        if (!need.location) {
+            return res.json([]); // Return empty results instead of breaking with 404
         }
 
         let lat, lng;
@@ -75,7 +79,7 @@ const findMatchesForNeed = async (req, res) => {
         if (typeof need.location === 'string') {
             const match = need.location.match(/\(([^)]+)\)/);
             if (match) {
-                const coords = match[1].split(' ');
+                const coords = match[1].trim().split(/\s+/);
                 [lng, lat] = coords;
             }
         } else if (need.location.coordinates) {
@@ -83,7 +87,7 @@ const findMatchesForNeed = async (req, res) => {
         }
 
         if (!lat || !lng) {
-            return res.status(400).json({ error: 'Invalid location format in target need.' });
+            return res.json([]); 
         }
 
         const { data, error } = await supabase.rpc('get_nearby_resources', {

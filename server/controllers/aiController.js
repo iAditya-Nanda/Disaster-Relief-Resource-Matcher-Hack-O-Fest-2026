@@ -54,11 +54,12 @@ const matchChat = async (req, res) => {
         .from('needs')
         .insert([{
           requester_id: userId,
-          title: `Resource Aid Request - ${aiResult.category}`,
+          title: `[OPEN] ${aiResult.category || 'General'} Aid.`,
           description: message,
+          summary: aiResult.summary || message,
           status: 'opened',
-          urgency: aiResult.urgency,
-          category: aiResult.category,
+          urgency: aiResult.urgency || 5,
+          category: aiResult.category || 'Other',
           location: lat && lng ? `POINT(${lng} ${lat})` : null
         }])
         .select()
@@ -67,10 +68,11 @@ const matchChat = async (req, res) => {
       if (needError) throw needError;
       finalNeedId = newNeed.id;
     } else {
-      // Update existing need category/urgency based on latest match intel
+      // Update existing need: summarize total state
       await supabase
         .from('needs')
         .update({ 
+          summary: aiResult.summary,
           category: aiResult.category, 
           urgency: aiResult.urgency,
           status: aiResult.match_found ? 'in_progress' : 'opened'
@@ -137,10 +139,11 @@ const medicalChat = async (req, res) => {
         .from('needs')
         .insert([{
           requester_id: userId,
-          title: `Medical Aid Request - Triage`,
+          title: `[MEDICAL] Triage Hub.`,
           description: message,
+          summary: aiResult.summary || message,
           status: aiResult.connect_doctor ? 'pending' : 'opened', // 'pending' means waiting for doctor
-          urgency: aiResult.urgency,
+          urgency: aiResult.urgency || 8,
           category: 'Medical',
           location: lat && lng ? `POINT(${lng} ${lat})` : null
         }])
@@ -153,6 +156,7 @@ const medicalChat = async (req, res) => {
       await supabase
         .from('needs')
         .update({ 
+          summary: aiResult.summary,
           urgency: aiResult.urgency,
           status: aiResult.connect_doctor ? 'pending' : 'opened'
         })

@@ -8,11 +8,12 @@ import {
   Zap,
   Navigation,
   Clock,
-  Target,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Send,
+  Sparkles
 } from 'lucide-react';
-import { HeaderSkeleton, ItemCardSkeleton } from '../components/Skeleton';
+import { ItemCardSkeleton, MapSkeleton } from '../components/Skeleton';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -25,6 +26,7 @@ interface Need {
   location: any;
   status: string;
   created_at: string;
+  summary?: string;
 }
 
 interface Match {
@@ -44,24 +46,73 @@ export default function NeedsMap() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [matching, setMatching] = useState(false);
   const [needChat, setNeedChat] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   
   const { session, user } = useAuthStore();
 
   useEffect(() => {
     fetchNeeds();
-  }, []);
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Real-time: New Needs Subscription
+    const needsChannel = supabase
+      .channel('needs-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'needs' }, () => {
+        fetchNeeds();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(needsChannel);
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!selectedNeed) return;
+
+    // Real-time: Chat Subscription
+    const chatChannel = supabase
+      .channel(`chat-${selectedNeed.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'need_messages', 
+        filter: `need_id=eq.${selectedNeed.id}` 
+      }, (payload) => {
+        setNeedChat(prev => {
+           // Skip if message already exists locally
+           if (prev.find(m => m.id === payload.new.id)) return prev;
+           return [...prev, payload.new];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(chatChannel);
+    };
+  }, [selectedNeed?.id]);
 
   const fetchNeeds = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('needs')
-        .select('*')
-        .in('status', ['pending', 'created', 'opened', 'in_progress'])
-        .order('urgency', { ascending: false });
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      const res = await axios.get(`${API_URL}/api/needs/my`, { headers });
       
-      if (error) throw error;
-      setNeeds(data || []);
+      const filtered = (res.data || []).filter((n: any) => 
+        n.category !== 'Medical' && 
+        (activeTab === 'active' 
+          ? ['pending', 'created', 'opened', 'in_progress'].includes(n.status)
+          : ['completed', 'fulfilled', 'closed'].includes(n.status))
+      );
+      setNeeds(filtered);
     } catch (err) {
       console.error('Error fetching needs:', err);
     } finally {
@@ -99,247 +150,341 @@ export default function NeedsMap() {
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || !selectedNeed || sending) return;
+
+    setSending(true);
+    try {
+      const { data, error } = await supabase.from('need_messages').insert([{
+        need_id: selectedNeed.id,
+        sender_id: user?.id || 'bb89335a-ddbb-4030-92e7-6681240c20a8', // POC Fallback
+        text: chatInput,
+        is_ai: false
+      }]).select().single();
+
+      if (error) throw error;
+      setChatInput('');
+      setNeedChat(prev => [...prev, data]);
+    } catch (err) {
+      console.error('Message failed:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleInitializeDrop = async () => {
+    if (!selectedNeed || updating) return;
+
+    setUpdating(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      await axios.patch(`${API_URL}/api/needs/${selectedNeed.id}/status`, {
+        status: 'in_progress',
+        resource_id: selectedMatchId
+      }, { headers });
+      
+      // Update locally
+      setSelectedNeed(prev => prev ? { ...prev, status: 'in_progress' } : null);
+      fetchNeeds();
+    } catch (err) {
+      console.error('Drop initialization failed:', err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleResolveTicket = async () => {
+    if (!selectedNeed || updating) return;
+    setUpdating(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      if (user?.id) headers['x-test-user-id'] = user.id;
+
+      await axios.patch(`${API_URL}/api/needs/${selectedNeed.id}/status`, {
+        status: 'closed'
+      }, { headers });
+      
+      setSelectedNeed(null);
+      fetchNeeds();
+    } catch (e) {
+      console.error('Resolve failed:', e);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <AnimatePresence mode="wait">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        key="main-container"
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="space-y-12 pb-20 px-2"
+        exit={{ opacity: 0, y: -10 }}
+        className="h-full flex flex-col gap-6 overflow-hidden pr-2"
       >
-        {loading ? (
-          <div className="space-y-12">
-            <HeaderSkeleton />
-            <div className="grid lg:grid-cols-2 gap-12">
-               <div className="space-y-6">
-                 {[1,2,3,4].map(i => <ItemCardSkeleton key={i} />)}
-               </div>
-               <div className="bg-slate-50 rounded-[60px] h-[750px] animate-pulse"></div>
+        {/* TOP BAR / NAVIGATION */}
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-white/40 p-10 rounded-[45px] border border-white shadow-sm backdrop-blur-md">
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                    <Navigation className="text-white fill-white" size={20} />
+                  </div>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tight leading-none uppercase">
+                    Field <span className="text-blue-600">Ops.</span>
+                  </h2>
+                </div>
+                <p className="text-xs font-black text-slate-400 tracking-[0.3em] uppercase opacity-70 border-l-4 border-blue-600 pl-6">Sector Command Center v4.0</p>
             </div>
+
+            <div className="flex items-center gap-2 bg-slate-900/5 p-1.5 rounded-2xl border border-slate-900/5">
+                {[
+                  { id: 'active', label: 'Monitor' },
+                  { id: 'history', label: 'History' }
+                ].map((tab) => (
+                  <button 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-8 py-3 text-[10px] font-black tracking-widest rounded-xl transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-xl scale-105' : 'text-slate-400 hover:text-slate-900'}`}
+                  >
+                    {tab.label.toUpperCase()}
+                  </button>
+                ))}
+            </div>
+        </div>
+
+        {/* MAIN WORKSPACE */}
+        {loading ? (
+          <div className="flex-1 grid lg:grid-cols-[1fr_480px] gap-8 overflow-hidden">
+             <div className="space-y-6 overflow-hidden scroll-container px-2">
+                {[1,2,3].map(i => <ItemCardSkeleton key={i} />)}
+             </div>
+             <MapSkeleton />
           </div>
         ) : (
-          <>
-            <div className="flex flex-col md:flex-row justify-between items-end gap-10">
-              <div className="flex flex-col gap-4 flex-1">
-                <h2 className="text-[64px] font-black text-slate-900 tracking-[-0.04em] leading-none whitespace-nowrap">
-                  Need <span className="text-blue-600">Map.</span>
-                </h2>
-                <p className="text-lg font-medium text-slate-400 tracking-tight leading-relaxed max-w-xl border-l-4 border-blue-600 pl-6 text-xs opacity-80">
-                  Real-time monitoring of urgent requests from the field
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-2 bg-white p-2 rounded-[25px] border border-slate-100 shadow-sm overflow-hidden mb-2">
-                 {['Active Requests', 'History'].map((tab, i) => (
-                   <button 
-                     key={tab}
-                     className={`px-8 py-3 text-[10px] font-black tracking-tight rounded-[20px] transition-all cursor-pointer ${i === 0 ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
-                   >
-                     {tab}
-                   </button>
-                 ))}
-              </div>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-12">
-              {/* Needs List */}
-              <div className="space-y-8">
-                <div className="flex items-center justify-between px-4">
-                  <div className="flex flex-col gap-2 relative">
-                    <div className="absolute -left-6 top-0 w-1.5 h-full bg-blue-600 rounded-full"></div>
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">Pending Help.</h3>
-                    <p className="text-sm font-semibold text-slate-400 tracking-tight leading-none">{needs.length} Active Nodes</p>
-                  </div>
+          <div className="flex-1 grid lg:grid-cols-[1fr_480px] gap-8 overflow-hidden min-h-0">
+             {/* LEFT: SIGNAL FEED */}
+             <div className="flex flex-col gap-6 min-h-0">
+                <div className="flex items-center justify-between px-6">
+                   <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                      <h3 className="text-xl font-black text-slate-800 tracking-tight">SIGNAL FEED</h3>
+                   </div>
+                   <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{needs.length} NODES ONLINE</span>
                 </div>
 
-                <div className="space-y-4 max-h-[750px] overflow-y-auto pr-4 no-scrollbar">
-                  {needs.length === 0 ? (
-                    <div className="p-20 text-center bg-white rounded-[60px] border border-slate-100 shadow-sm flex flex-col items-center">
-                      <div className="w-20 h-20 bg-slate-50 rounded-[30px] flex items-center justify-center mb-6 shadow-inner border border-white">
-                        <ShieldCheck className="text-slate-200" size={32} />
-                      </div>
-                      <h4 className="text-3xl font-black text-slate-900 tracking-tight mb-2">All Clear.</h4>
-                      <p className="text-[10px] font-black text-slate-400 max-w-xs leading-relaxed tracking-tight opacity-60">No pending requests in your sector.</p>
-                    </div>
-                  ) : (
-                    needs.map((need, i) => (
-                      <motion.div 
-                        key={need.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        onClick={() => findMatches(need)}
-                        className={`bg-white group p-8 rounded-[45px] border-4 transition-all cursor-pointer relative overflow-hidden flex items-center gap-8 ${selectedNeed?.id === need.id ? 'border-blue-600 shadow-2xl scale-[1.02]' : 'border-transparent shadow-[0_15px_45px_-15px_rgba(0,0,0,0.05)] hover:shadow-2xl hover:border-slate-50'}`}
-                      >
-                        <div className={`shrink-0 w-20 h-20 rounded-[28px] flex flex-col items-center justify-center transition-all duration-700 ${selectedNeed?.id === need.id ? 'bg-blue-600 text-white shadow-xl rotate-6' : 'bg-slate-50 text-slate-400 border border-slate-100 shadow-inner group-hover:bg-white group-hover:text-blue-600 group-hover:-rotate-3'}`}>
-                          <span className="text-4xl font-black tracking-tighter leading-none">{need.urgency}</span>
-                          <span className="text-[8px] font-black tracking-tight opacity-60">Level</span>
-                        </div>
-
-                        <div className="flex-1 space-y-3 relative z-10">
-                          <div className="flex items-center gap-4">
-                             <span className={`text-[10px] font-black px-4 py-1.5 rounded-full tracking-tight border-2 ${selectedNeed?.id === need.id ? 'bg-white/20 border-white/20 text-blue-900' : 'bg-blue-50/50 border-blue-100 text-blue-600'}`}>Priority-{need.category}</span>
-                             <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
-                               <Clock size={12}/>
-                               <span className="text-[11px] font-black tracking-tight">{new Date(need.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                             </div>
-                          </div>
-                          <h4 className={`text-2xl font-black tracking-tight leading-none ${selectedNeed?.id === need.id ? 'text-slate-900' : 'text-slate-700'}`}>{need.title}</h4>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${need.status === 'in_progress' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{need.status}</span>
-                            <p className="text-[12px] text-slate-400 font-bold tracking-tight line-clamp-1 opacity-70">"{need.description}"</p>
-                          </div>
-                        </div>
-
-                        <ChevronRight size={28} className={`transition-all duration-500 ${selectedNeed?.id === need.id ? 'text-blue-600 translate-x-2' : 'text-slate-100 group-hover:text-slate-300'}`} />
-                      </motion.div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Matches Analysis */}
-              <div className="space-y-8 sticky top-0 h-fit">
-                <div className="flex items-center gap-4 px-4">
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tight">Match Intelligence.</h3>
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {!selectedNeed ? (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      className="h-[650px] flex flex-col items-center justify-center text-center p-12 bg-white rounded-[60px] border-4 border-white shadow-[0_30px_90px_-20px_rgba(0,0,0,0.05)] group relative overflow-hidden"
-                    >
-                       <div className="w-24 h-24 bg-slate-50 rounded-[40px] flex items-center justify-center mb-10 shadow-inner group-hover:rotate-12 transition-transform duration-700">
-                         <Navigation className="text-blue-600/30 group-hover:text-blue-600 transition-all active:scale-95" size={48} />
-                       </div>
-                       <h3 className="text-4xl font-black text-slate-900 tracking-tight mb-4">Initialize.</h3>
-                       <p className="text-sm font-black text-slate-400 max-w-xs tracking-tight opacity-60 leading-relaxed italic">Select a help request from the map to analyze available aid stock nodes.</p>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key={selectedNeed.id}
-                      initial={{ opacity: 0, x: 40 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 40 }}
-                      className="bg-slate-900 rounded-[60px] text-white flex flex-col h-[750px] shadow-2xl overflow-hidden border-8 border-white"
-                    >
-                      <div className="p-12 pb-8 flex justify-between items-start bg-gradient-to-br from-blue-700 to-blue-900 relative">
-                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-3xl rounded-full translate-x-32 -translate-y-32"></div>
-                         <div className="flex items-center gap-6 relative z-10">
-                            <div className="w-20 h-20 rounded-[28px] bg-white text-blue-600 flex items-center justify-center shadow-2xl shadow-blue-950/50 scale-110">
-                               <Zap size={32} className="fill-blue-600 transition-transform group-hover:scale-125" />
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black tracking-tight text-blue-200/50">Neural Matcher v1</p>
-                              <h4 className="text-3xl font-black tracking-tighter leading-none">{selectedNeed.title}</h4>
-                            </div>
-                         </div>
-                         <button onClick={() => setSelectedNeed(null)} className="w-12 h-12 flex items-center justify-center text-white/30 hover:text-white bg-white/10 hover:bg-white/20 rounded-2xl transition-all">
-                           <X size={24}/>
-                         </button>
-                      </div>
-
-                      <div className="flex-1 p-12 overflow-y-auto no-scrollbar space-y-10">
-                          <div className="bg-white/5 p-8 rounded-[35px] border border-white/5 shadow-inner space-y-4">
-                             <p className="text-lg font-black leading-relaxed text-blue-50/70 tracking-tight italic">
-                               "{selectedNeed.description}"
-                             </p>
-                             <div className="flex items-center gap-3 pt-4 border-t border-white/5">
-                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <span className="text-[10px] font-black tracking-widest uppercase text-blue-400 opacity-60">AI Intelligence Report</span>
-                             </div>
-                          </div>
-
-                         {matching ? (
-                           <div className="flex flex-col items-center gap-10 py-20">
-                              <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-lg"></div>
-                              <p className="text-[11px] font-black tracking-tight text-blue-400 animate-pulse">Syncing stock...</p>
+                <div className="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-4 pb-10">
+                   {needs.length === 0 ? (
+                     <div className="h-[300px] flex flex-col items-center justify-center opacity-20 border-2 border-dashed border-slate-200 rounded-[40px]">
+                        <ShieldCheck size={48} className="mb-4" />
+                        <p className="font-black text-xs tracking-widest uppercase">Signal Clear</p>
+                     </div>
+                   ) : (
+                     needs.map((need, i) => (
+                        <motion.div
+                          key={need.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => findMatches(need)}
+                          className={`group p-8 rounded-[40px] border-4 transition-all cursor-pointer relative overflow-hidden flex items-center gap-8 ${selectedNeed?.id === need.id ? 'bg-white border-blue-600 shadow-[0_30px_60px_-15px_rgba(37,99,235,0.15)] z-10 scale-[1.01]' : 'bg-white border-transparent hover:border-slate-100 hover:shadow-xl opacity-80 hover:opacity-100'}`}
+                        >
+                           <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center transition-all ${selectedNeed?.id === need.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                              <span className="text-2xl font-black leading-none">{need.urgency}</span>
+                              <span className="text-[7px] font-black uppercase tracking-tighter opacity-60">Level</span>
                            </div>
-                         ) : (
-                           <div className="space-y-10">
-                              {/* Chat Transcript Section */}
-                              <div className="space-y-6">
-                                 <p className="text-[10px] font-black text-white/30 uppercase tracking-widest px-4">Emergency Transcript</p>
-                                 <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar pr-2">
-                                    {needChat.length === 0 ? (
-                                       <p className="text-[10px] text-white/20 italic px-4">No transcript available</p>
-                                    ) : (
-                                       needChat.map((msg, i) => (
-                                          <div key={i} className={`p-5 rounded-[28px] ${msg.is_ai ? 'bg-blue-600/10 border border-blue-600/20' : 'bg-white/5 border border-white/5'}`}>
-                                             <div className="flex items-center gap-2 mb-2">
-                                                <span className={`text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded ${msg.is_ai ? 'bg-blue-600 text-white' : 'bg-white/20 text-white/50'}`}>
-                                                   {msg.is_ai ? 'AI Coordinator' : 'Requester'}
-                                                </span>
-                                                <span className="text-[8px] text-white/20 font-bold">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                             </div>
-                                             <p className="text-sm font-medium text-white/70 leading-relaxed">{msg.text}</p>
-                                          </div>
-                                       ))
-                                    )}
-                                 </div>
+
+                           <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-1">
+                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${need.status === 'in_progress' ? 'bg-emerald-100 text-emerald-600' : (need.status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600')}`}>{need.status}</span>
+                                 <span className="text-[9px] font-bold text-slate-300">{new Date(need.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
+                              <h4 className="text-xl font-black text-slate-900 truncate uppercase tracking-tight">{need.title}</h4>
+                              <p className="text-xs font-medium text-slate-400 truncate mt-1 opacity-70 italic">
+                                {need.summary ? `Summary: ${need.summary}` : `"${need.description}"`}
+                              </p>
+                           </div>
 
-                              <div className="space-y-8">
-                                 <div className="flex items-center justify-between px-4">
-                                   <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Inventory Match Analysis</p>
-                                   <span className="text-[10px] font-black text-blue-400">Core Rank</span>
-                                 </div>
+                           <ChevronRight className={`transition-all duration-500 ${selectedNeed?.id === need.id ? 'text-blue-600 translate-x-2' : 'text-slate-100 group-hover:text-slate-300'}`} size={24} />
+                        </motion.div>
+                     ))
+                   )}
+                </div>
+             </div>
 
-                              <div className="space-y-4">
-                                {matches.length === 0 ? (
-                                  <div className="p-16 text-center border-4 border-dashed border-white/5 rounded-[40px] opacity-20">
-                                     <p className="text-[11px] font-black tracking-tight">No match stock detected</p>
-                                  </div>
-                                ) : (
-                                  matches.map((match, i) => (
-                                    <motion.div 
-                                      key={match.id}
-                                      initial={{ opacity: 0, y: 10 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      transition={{ delay: i * 0.1 }}
-                                      className="bg-white/5 hover:bg-white/10 p-8 rounded-[40px] border border-white/5 hover:border-blue-400/50 transition-all flex items-center gap-8 group cursor-pointer relative overflow-hidden"
-                                    >
-                                       <div className="w-16 h-16 rounded-[22px] bg-slate-800 flex flex-col items-center justify-center text-blue-400 border border-white/5 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">
-                                          <span className="text-3xl font-black leading-none">{match.match_score}</span>
-                                          <span className="text-[8px] font-black mt-1 opacity-60">SR</span>
-                                        </div>
-                                       <div className="flex-1 space-y-2">
-                                          <h5 className="font-black text-2xl tracking-tighter leading-none group-hover:translate-x-1 transition-transform">{match.title}</h5>
-                                          <div className="flex items-center gap-6">
-                                             <div className="flex items-center gap-2">
-                                                <Target size={12} className="text-blue-500" />
-                                                <span className="text-[11px] font-black text-white/30">{(match.distance / 1000).toFixed(1)} km</span>
-                                             </div>
-                                             <div className="flex items-center gap-2">
-                                                <ShieldCheck size={12} className="text-blue-500" />
-                                                <span className="text-[11px] font-black text-white/30">{match.quantity} {match.unit}</span>
-                                             </div>
+             {/* RIGHT: COMMAND CONSOLE */}
+             <div className="flex flex-col min-h-0 bg-white rounded-[50px] border-2 border-slate-100 shadow-2xl overflow-hidden relative">
+                <AnimatePresence mode="wait">
+                   {!selectedNeed ? (
+                     <motion.div 
+                        key="console-empty"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="flex-1 flex flex-col items-center justify-center p-12 text-center opacity-40 bg-slate-50/50"
+                     >
+                        <Zap className="mb-6 text-slate-200" size={64} />
+                        <h4 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Enter Command.</h4>
+                        <p className="text-[10px] font-black tracking-widest uppercase mt-2">Awaiting Signal Intersection</p>
+                     </motion.div>
+                   ) : (
+                     <motion.div 
+                        key={selectedNeed.id}
+                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                        className="flex-1 flex flex-col min-h-0"
+                     >
+                        {/* Define a constant to ensure TS doesn't complain about nullability */}
+                        {(() => {
+                            const currentNeed = selectedNeed!;
+                            return (
+                                <>
+                                    {/* PANEL HEADER */}
+                                    <div className="p-10 bg-slate-900 text-white flex justify-between items-start relative overflow-hidden">
+                                       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-3xl rounded-full"></div>
+                                       <div className="flex items-center gap-6 relative z-10">
+                                          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                             <Zap size={24} className="fill-white" />
+                                          </div>
+                                          <div>
+                                             <p className="text-[8px] font-black tracking-[0.4em] text-white/30 uppercase mb-1">Deployment Node</p>
+                                             <h4 className="text-2xl font-black tracking-tight uppercase leading-none">{currentNeed.title}</h4>
                                           </div>
                                        </div>
-                                        <ChevronRight size={24} className="text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" />
-                                    </motion.div>
-                                  ))
-                                )}
+                                       <button onClick={() => setSelectedNeed(null)} className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-xl transition-all relative z-10 group">
+                                          <X size={20} className="text-white/40 group-hover:text-white" />
+                                       </button>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto no-scrollbar p-10 space-y-10">
+                           <div className="bg-slate-50 p-8 rounded-[35px] border border-slate-100 shadow-inner space-y-4">
+                              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Understood Need</p>
+                              <p className="text-xl font-black text-slate-900 leading-tight tracking-tight">
+                                {currentNeed.summary || "Extracting situational summary..."}
+                              </p>
+                              <div className="h-0.5 bg-slate-100 w-full rounded-full"></div>
+                              <p className="text-xs font-bold text-slate-400 leading-relaxed italic opacity-80">
+                                First Signal: "{currentNeed.description}"
+                              </p>
+                           </div>
+
+                           {/* CHAT LOG */}
+                           <div className="space-y-4">
+                              <p className="text-[10px] font-black text-slate-300 tracking-widest uppercase px-2">MISSION LOG</p>
+                              <div className="space-y-3 max-h-[180px] overflow-y-auto no-scrollbar pr-2">
+                                 {needChat.length === 0 ? (
+                                   <div className="h-20 flex items-center justify-center border-2 border-dashed border-slate-50 rounded-3xl opacity-30">
+                                      <p className="text-[8px] font-black uppercase tracking-widest">No entries documented</p>
+                                   </div>
+                                 ) : (
+                                   needChat.map((msg, i) => (
+                                     <div key={i} className={`p-5 rounded-[28px] ${msg.is_ai ? 'bg-blue-50 border border-blue-100' : (msg.sender_id === user?.id ? 'bg-slate-900 text-white ml-8 shadow-lg' : 'bg-slate-50 border border-slate-200 mr-8')}`}>
+                                        <div className="flex items-center gap-2 mb-2 opacity-50">
+                                           <span className="text-[7px] font-black uppercase tracking-widest">{msg.is_ai ? 'AI' : (msg.sender_id === user?.id ? 'NGO' : 'USER')}</span>
+                                           <span className="text-[7px] font-bold">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <p className={`text-xs font-semibold leading-relaxed ${msg.sender_id === user?.id ? 'text-white' : 'text-slate-600'}`}>{msg.text}</p>
+                                     </div>
+                                   ))
+                                 )}
+                              </div>
+                              <div className="flex gap-2 bg-slate-50 p-2 rounded-3xl border border-slate-100 mt-4">
+                                 <input 
+                                   type="text"
+                                   value={chatInput}
+                                   onChange={(e) => setChatInput(e.target.value)}
+                                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                   placeholder="Secure response feed..."
+                                   className="flex-1 bg-transparent border-none outline-none px-6 text-xs font-black text-slate-700 placeholder:text-slate-300"
+                                 />
+                                 <button 
+                                   onClick={handleSendMessage}
+                                   disabled={!chatInput.trim() || sending}
+                                   className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 disabled:opacity-20 shadow-lg transition-all"
+                                 >
+                                    <Send size={16} />
+                                 </button>
+                              </div>
+                           </div>
+
+                           {/* STOCK NODES */}
+                           <div className="space-y-4">
+                              <div className="flex items-center justify-between px-2">
+                                 <p className="text-[10px] font-black text-slate-300 tracking-widest uppercase">STOCK INTERSECTIONS</p>
+                                 <span className="text-[10px] font-black text-blue-600 uppercase">CORE INDEX</span>
+                              </div>
+                              <div className="grid gap-3">
+                                 {matching ? (
+                                   <div className="h-40 flex flex-col items-center justify-center opacity-30">
+                                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                                      <span className="text-[8px] font-black uppercase tracking-widest">Scanning Networks</span>
+                                   </div>
+                                 ) : matches.length === 0 ? (
+                                   <div className="p-10 text-center border-2 border-dashed border-slate-50 rounded-[40px] opacity-20">
+                                      <p className="text-[10px] font-black uppercase">No intersections found</p>
+                                   </div>
+                                 ) : (
+                                   matches.map(match => (
+                                     <div 
+                                       key={match.id}
+                                       onClick={() => setSelectedMatchId(match.id)}
+                                       className={`p-6 rounded-[35px] border-2 transition-all cursor-pointer flex items-center gap-6 ${selectedMatchId === match.id ? 'bg-blue-50 border-blue-600 shadow-xl' : 'bg-white border-slate-50 hover:border-slate-100'}`}
+                                     >
+                                        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black ${selectedMatchId === match.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-400'}`}>
+                                           <span className="text-xl leading-none">{match.match_score}</span>
+                                           <span className="text-[6px] uppercase tracking-tighter">INDEX</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                           <h5 className="text-[14px] font-black text-slate-900 uppercase truncate tracking-tight">{match.title}</h5>
+                                           <div className="flex items-center gap-4 mt-1 opacity-50">
+                                              <div className="flex items-center gap-1">
+                                                 <Navigation size={10} className="text-blue-500" />
+                                                 <span className="text-[9px] font-bold">{(match.distance / 1000).toFixed(1)}KM</span>
+                                              </div>
+                                              <div className="flex items-center gap-1">
+                                                 <ShieldCheck size={10} className="text-emerald-500" />
+                                                 <span className="text-[9px] font-bold">{match.quantity} {match.unit}</span>
+                                              </div>
+                                           </div>
+                                        </div>
+                                     </div>
+                                   ))
+                                 )}
                               </div>
                            </div>
                         </div>
-                         )}
-                      </div>
-                      
-                      <div className="p-10 bg-black/40 backdrop-blur-2xl border-t border-white/5 relative z-20">
-                        <button className="w-full bg-white text-slate-900 hover:bg-blue-600 hover:text-white py-8 rounded-[35px] text-lg font-black tracking-tight shadow-[0_25px_60px_-15px_rgba(255,255,255,0.1)] transition-all active:scale-95 flex items-center justify-center gap-6 group">
-                           Initialize Drop <Zap size={24} className="fill-current" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
+
+                        {/* MASTER ACTION */}
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+                           {currentNeed.status === 'in_progress' ? (
+                             <button
+                               onClick={handleResolveTicket}
+                               disabled={updating}
+                               className="flex-1 h-20 bg-emerald-600 text-white rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-4"
+                             >
+                                {updating ? 'Syncing...' : 'Complete Operation'} <ShieldCheck size={20} />
+                             </button>
+                           ) : (
+                             <button
+                               onClick={handleInitializeDrop}
+                               disabled={!selectedMatchId || updating}
+                               className="flex-1 h-20 bg-blue-600 text-white rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-blue-100 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-4"
+                             >
+                                {updating ? 'Initializing...' : 'Commit Resource'} <Zap size={20} className="fill-white" />
+                             </button>
+                           )}
+                           <button onClick={() => setSelectedNeed(null)} className="w-20 h-20 bg-white border-2 border-slate-100 rounded-[28px] flex items-center justify-center text-slate-300 hover:text-slate-900 transition-all shadow-sm">
+                              <X size={24} />
+                           </button>
+                        </div>
+                                </>
+                            );
+                        })()}
+                     </motion.div>
+                   )}
                 </AnimatePresence>
-              </div>
-            </div>
-          </>
+             </div>
+          </div>
         )}
       </motion.div>
     </AnimatePresence>

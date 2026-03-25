@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Bot, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../supabaseClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -31,12 +32,90 @@ export default function ResourceChat({ onBack }: ResourceChatProps) {
   const [loading, setLoading] = useState(false);
   const [needId, setNeedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  useEffect(() => {
+    if (user?.id && !historyLoaded) {
+      fetchActiveNeed();
+    }
+  }, [user?.id]);
+
+  const fetchActiveNeed = async () => {
+    if (!user?.id) return;
+    try {
+      // Find the most recent active need for this user
+      const { data: need, error: needError } = await supabase
+        .from('needs')
+        .select('*')
+        .eq('requester_id', user.id)
+        .in('status', ['opened', 'pending', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (needError && needError.code !== 'PGRST116') throw needError;
+
+      if (need) {
+        setNeedId(need.id);
+        const { data: msgs, error: msgsError } = await supabase
+          .from('need_messages')
+          .select('*')
+          .eq('need_id', need.id)
+          .order('created_at', { ascending: true });
+        
+        if (msgsError) throw msgsError;
+        
+        if (msgs) {
+          setMessages(msgs.map(m => ({
+            id: m.id,
+            text: m.text,
+            is_ai: m.is_ai,
+            created_at: m.created_at
+          })));
+        }
+      }
+      setHistoryLoaded(true);
+    } catch (err) {
+      console.error('Error fetching history:', err);
+      setHistoryLoaded(true);
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!needId) return;
+
+    const channel = supabase
+      .channel(`chat-${needId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'need_messages', 
+        filter: `need_id=eq.${needId}` 
+      }, (payload) => {
+        // Skip messages we already have (like our own optimistic updates)
+        setMessages(prev => {
+          if (payload.new.sender_id === user?.id && !payload.new.is_ai) return prev;
+          if (prev.find(m => m.id === payload.new.id)) return prev;
+          return [...prev, {
+            id: payload.new.id,
+            text: payload.new.text,
+            is_ai: payload.new.is_ai,
+            created_at: payload.new.created_at
+          }];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [needId]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || loading) return;
@@ -46,9 +125,8 @@ export default function ResourceChat({ onBack }: ResourceChatProps) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
 
-    try {
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
+    const sendWithLocation = async (lat?: number, lng?: number) => {
+      try {
         const headers: Record<string, string> = {};
         if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
         if (user?.id) headers['x-test-user-id'] = user.id;
@@ -69,37 +147,22 @@ export default function ResourceChat({ onBack }: ResourceChatProps) {
         
         setMessages(prev => [...prev, aiMsg]);
         setNeedId(response.data.need_id);
-      }, async () => {
-         // Fallback without location
-         const headers: Record<string, string> = {};
-         if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-         if (user?.id) headers['x-test-user-id'] = user.id;
-
-         const response = await axios.post(`${API_URL}/api/ai/chat`, {
-          message: text,
-          title: '[AI TRIAGE] Emergency Resource Need',
-          need_id: needId
-        }, { headers });
-
-        const aiMsg: Message = {
-          text: response.data.ai_response,
+      } catch (error) {
+        console.error('Chat API Error:', error);
+        setMessages(prev => [...prev, {
+          text: "The emergency network is currently overloaded. We are logging your request manually. Please refresh or try again in a moment.",
           is_ai: true,
           created_at: new Date().toISOString()
-        };
-        
-        setMessages(prev => [...prev, aiMsg]);
-        setNeedId(response.data.need_id);
-      });
-    } catch (error) {
-      console.error('Chat Error:', error);
-      setMessages(prev => [...prev, {
-        text: "I'm having trouble connecting to the rescue network. Please try again soon.",
-        is_ai: true,
-        created_at: new Date().toISOString()
-      }]);
-    } finally {
-      setLoading(false);
-    }
+        }]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => sendWithLocation(pos.coords.latitude, pos.coords.longitude),
+      () => sendWithLocation()
+    );
   };
 
   return (

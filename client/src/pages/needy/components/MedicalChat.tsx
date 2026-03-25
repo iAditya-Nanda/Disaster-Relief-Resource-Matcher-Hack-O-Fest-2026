@@ -4,6 +4,7 @@ import { X, Send, Bot, Sparkles, AlertCircle, Video } from 'lucide-react';
 import axios from 'axios';
 import { useAuthStore } from '../../../store/authStore';
 import { io, Socket } from 'socket.io-client';
+import { supabase } from '../../../supabaseClient';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -48,8 +49,7 @@ export default function MedicalChat({ onBack }: MedicalChatProps) {
         const accept = window.confirm("Incoming Emergency Video Call from a Doctor. Accept?");
         if (accept) {
            setInCall(true);
-           // Simulate WebRTC answer logic...
-           // Real implementation would involve RTCPeerConnection
+           setConnectedDoctor(true);
         }
     });
 
@@ -57,6 +57,44 @@ export default function MedicalChat({ onBack }: MedicalChatProps) {
        socketRef.current?.disconnect();
     };
   }, [user]);
+
+  // Real-time subscription for doctor/AI messages
+  useEffect(() => {
+    if (!needId) return;
+
+    // Fetch existing messages first
+    const fetchMsgs = async () => {
+       const { data } = await supabase
+         .from('need_messages')
+         .select('*')
+         .eq('need_id', needId)
+         .order('created_at', { ascending: true });
+       if (data) setMessages(data);
+    }
+    fetchMsgs();
+
+    const channel = supabase
+      .channel(`medical-chat-${needId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'need_messages', 
+        filter: `need_id=eq.${needId}` 
+      }, (payload) => {
+        setMessages((prev: Message[]) => {
+          if (prev.find(m => m.id === payload.new.id)) return prev;
+          return [...prev, payload.new as Message];
+        });
+        if (payload.new.sender_id !== user?.id) {
+           setConnectedDoctor(true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [needId]);
 
   useEffect(() => {
     if (scrollRef.current) {
